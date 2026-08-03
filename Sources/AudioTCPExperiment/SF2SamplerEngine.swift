@@ -74,6 +74,13 @@ public final class SF2SamplerEngine: @unchecked Sendable {
                 bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB),
                 bankLSB: 0
             )
+            sampler.sendProgramChange(
+                program,
+                bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB),
+                bankLSB: 0,
+                onChannel: 0
+            )
+            print("[\u{001B}[32m✓\u{001B}[0m] Strumento SoundFont SF2 attivato a Program \(program).")
         } catch {
             print("[\u{001B}[31m✗\u{001B}[0m] Errore caricamento strumento SF2 Program \(program): \(error)")
         }
