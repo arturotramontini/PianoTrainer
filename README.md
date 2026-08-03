@@ -39,6 +39,12 @@ Puoi aprire direttamente l'app impacchettata:
 open PianoTrainer.app
 ```
 
+> **Nota per il download dell'App da GitHub (Gatekeeper Quarantine)**:
+> Se scarichi la `.app` da browser web, macOS bloccherà l'avvio con il messaggio *"App danneggiata"*. Per sbloccarla ed avviarla subito, digita nel terminale:
+> ```bash
+> xattr -cr ~/Downloads/PianoTrainer.app
+> ```
+
 ### Compilazione da Sorgente via Swift Package Manager
 ```bash
 git clone https://github.com/tuousero/PianoTrainer.git
