@@ -10,8 +10,24 @@ let package = Package(
         .executable(name: "AudioTCPGUIClient", targets: ["AudioTCPGUIClient"])
     ],
     targets: [
+        .target(
+            name: "AudioTCPEngine",
+            path: "Sources/AudioTCPExperiment",
+            exclude: ["main.swift"],
+            linkerSettings: [
+                .linkedFramework("AVFAudio"),
+                .linkedFramework("AudioToolbox"),
+                .linkedFramework("CoreAudio"),
+                .linkedFramework("CoreMIDI"),
+                .linkedFramework("Network")
+            ]
+        ),
         .executableTarget(
             name: "AudioTCPExperiment",
+            dependencies: ["AudioTCPEngine"],
+            path: "Sources/AudioTCPExperiment",
+            exclude: ["AudioTCPServer.swift", "SF2SamplerEngine.swift", "AudioSynth.swift", "MIDIManager.swift"],
+            sources: ["main.swift"],
             linkerSettings: [
                 .linkedFramework("AVFAudio"),
                 .linkedFramework("AudioToolbox"),
@@ -28,6 +44,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "AudioTCPGUIClient",
+            dependencies: ["AudioTCPEngine"],
             linkerSettings: [
                 .linkedFramework("Network"),
                 .linkedFramework("SwiftUI"),

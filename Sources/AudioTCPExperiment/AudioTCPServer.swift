@@ -3,7 +3,7 @@ import Network
 
 /// Server TCP testuale, pensato per controllare una singola istanza AudioSynth.
 /// Ogni comando e ogni risposta terminano con un carattere newline (`\n`).
-final class AudioTCPServer {
+public final class AudioTCPServer: @unchecked Sendable {
     private final class Client {
         let connection: NWConnection
         var pendingData = Data()
@@ -16,7 +16,7 @@ final class AudioTCPServer {
     private let queue = DispatchQueue(label: "AudioTCPExperiment.server")
     private var clients: [ObjectIdentifier: Client] = [:]
 
-    init(audio: AudioSynth, port: UInt16 = 9876) throws {
+    public init(audio: AudioSynth, port: UInt16 = 9876) throws {
         guard let port = NWEndpoint.Port(rawValue: port) else {
             throw ServerError.invalidPort
         }
@@ -24,7 +24,7 @@ final class AudioTCPServer {
         self.listener = try NWListener(using: .tcp, on: port)
     }
 
-    func start() {
+    public func start() {
         listener.newConnectionHandler = { [weak self] connection in
             self?.accept(connection)
         }
@@ -38,7 +38,7 @@ final class AudioTCPServer {
         listener.start(queue: queue)
     }
 
-    func stop() {
+    public func stop() {
         listener.cancel()
         for client in clients.values { client.connection.cancel() }
         clients.removeAll()

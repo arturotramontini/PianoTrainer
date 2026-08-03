@@ -1,4 +1,5 @@
 import Dispatch
+import AudioTCPEngine
 
 let audio = AudioSynth()
 let midiManager = MIDIManager(audio: audio)

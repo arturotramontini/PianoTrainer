@@ -36,6 +36,10 @@ struct ContentView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             guiMidiManager.startMonitoring(clientService: clientService)
+            // Auto-connessione automatica al server integrato
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                clientService.connect()
+            }
         }
         .onDisappear {
             guiMidiManager.stop()
