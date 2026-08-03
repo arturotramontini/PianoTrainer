@@ -192,6 +192,14 @@ final class TCPClientService: ObservableObject {
         activeNotes.contains(midi)
     }
 
+    func setNoteActive(midi: UInt8, active: Bool) {
+        if active {
+            activeNotes.insert(midi)
+        } else {
+            activeNotes.remove(midi)
+        }
+    }
+
     func setParam(_ index: Int, value: Double) {
         sendRawCommand("set \(index) \(String(format: "%.4f", value))")
     }

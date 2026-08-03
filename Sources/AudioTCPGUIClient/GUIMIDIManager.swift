@@ -2,25 +2,27 @@ import Foundation
 import CoreMIDI
 import Combine
 
-/// Monitor per il rilevamento delle tastiere MIDI hardware fisiche nella GUI.
+/// Monitor per il rilevamento delle tastiere MIDI hardware fisiche e illuminazione tasti nella GUI.
 @MainActor
 final class GUIMIDIManager: ObservableObject {
     @Published var connectedDevices: [String] = []
 
-    private var client: MIDIClientRef = 0
+    nonisolated(unsafe) private var client: MIDIClientRef = 0
+    nonisolated(unsafe) private var inputPort: MIDIPortRef = 0
+    private weak var clientService: TCPClientService?
 
     init() {
-        startMonitoring()
     }
 
     deinit {
-        if client != 0 {
-            MIDIClientDispose(client)
-        }
+        stop()
     }
 
-    func startMonitoring() {
-        let status = MIDIClientCreateWithBlock("AudioTCPGUIClientMIDIClient" as CFString, &client) { [weak self] notificationPtr in
+    func startMonitoring(clientService: TCPClientService) {
+        self.clientService = clientService
+        stop()
+
+        var status = MIDIClientCreateWithBlock("AudioTCPGUIClientMIDIClient" as CFString, &client) { [weak self] notificationPtr in
             if notificationPtr.pointee.messageID == .msgSetupChanged {
                 Task { @MainActor [weak self] in
                     self?.refreshDevices()
@@ -28,8 +30,25 @@ final class GUIMIDIManager: ObservableObject {
             }
         }
 
-        if status == noErr {
-            refreshDevices()
+        guard status == noErr else { return }
+
+        status = MIDIInputPortCreateWithBlock(client, "AudioTCPGUIClientInputPort" as CFString, &inputPort) { [weak self] pktlistPtr, _ in
+            self?.handleMIDIPackets(pktlistPtr.pointee)
+        }
+
+        guard status == noErr else { return }
+
+        refreshDevices()
+    }
+
+    nonisolated func stop() {
+        if inputPort != 0 {
+            MIDIPortDispose(inputPort)
+            inputPort = 0
+        }
+        if client != 0 {
+            MIDIClientDispose(client)
+            client = 0
         }
     }
 
@@ -39,6 +58,8 @@ final class GUIMIDIManager: ObservableObject {
 
         for i in 0..<sourceCount {
             let source = MIDIGetSource(i)
+            _ = MIDIPortConnectSource(inputPort, source, nil)
+
             var nameRef: Unmanaged<CFString>?
             let nameStatus = MIDIObjectGetStringProperty(source, kMIDIPropertyDisplayName, &nameRef)
             
@@ -50,5 +71,58 @@ final class GUIMIDIManager: ObservableObject {
         }
 
         self.connectedDevices = names
+    }
+
+    nonisolated private func handleMIDIPackets(_ packetList: MIDIPacketList) {
+        var packet = packetList.packet
+        for _ in 0..<packetList.numPackets {
+            parsePacketData(packet)
+            packet = MIDIPacketNext(&packet).pointee
+        }
+    }
+
+    nonisolated private func parsePacketData(_ packet: MIDIPacket) {
+        let length = Int(packet.length)
+        guard length >= 2 else { return }
+
+        var bytes = [UInt8]()
+        bytes.reserveCapacity(length)
+        
+        var tempPacket = packet
+        withUnsafePointer(to: &tempPacket.data) { ptr in
+            ptr.withMemoryRebound(to: UInt8.self, capacity: length) { bytePtr in
+                for k in 0..<length {
+                    bytes.append(bytePtr[k])
+                }
+            }
+        }
+
+        var i = 0
+        while i < length {
+            let statusByte = bytes[i]
+            let messageType = statusByte & 0xF0
+
+            if messageType == 0x90 { // Note On
+                if i + 2 < length {
+                    let note = bytes[i + 1]
+                    let velocity = bytes[i + 2]
+                    let isNoteOn = velocity > 0
+                    Task { @MainActor in
+                        self.clientService?.setNoteActive(midi: note, active: isNoteOn)
+                    }
+                    i += 3
+                } else { break }
+            } else if messageType == 0x80 { // Note Off
+                if i + 1 < length {
+                    let note = bytes[i + 1]
+                    Task { @MainActor in
+                        self.clientService?.setNoteActive(midi: note, active: false)
+                    }
+                    i += (i + 2 < length ? 3 : 2)
+                } else { break }
+            } else {
+                i += 1
+            }
+        }
     }
 }

@@ -44,9 +44,11 @@ struct ContentView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             keyboardMonitor.startMonitoring(clientService: clientService)
+            guiMidiManager.startMonitoring(clientService: clientService)
         }
         .onDisappear {
             keyboardMonitor.stopMonitoring()
+            guiMidiManager.stop()
         }
     }
 
