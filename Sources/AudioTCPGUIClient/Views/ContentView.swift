@@ -11,6 +11,9 @@ struct ContentView: View {
             // Header & Connection Bar
             connectionHeaderView
 
+            // Piano Trainer Training Control Panel
+            pianoTrainerBannerView
+
             // Main Controls and Piano Keyboard
             mainSynthControlsView
 
@@ -23,11 +26,11 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(
-            minWidth: showConsole ? 750 : 540,
-            idealWidth: showConsole ? 850 : 600,
+            minWidth: showConsole ? 780 : 580,
+            idealWidth: showConsole ? 880 : 640,
             maxWidth: .infinity,
-            minHeight: 480,
-            idealHeight: 560,
+            minHeight: 560,
+            idealHeight: 640,
             maxHeight: .infinity
         )
         .background(Color(nsColor: .windowBackgroundColor))
@@ -37,6 +40,87 @@ struct ContentView: View {
         .onDisappear {
             guiMidiManager.stop()
         }
+    }
+
+    // MARK: - Piano Trainer Control Panel
+
+    private var pianoTrainerBannerView: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                // Target Note Display Badge
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "target")
+                            .foregroundColor(.orange)
+                        Text("PIANO TRAINER - NOTA PROPOSTA:")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(clientService.targetNoteText)
+                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .foregroundColor(clientService.targetNoteMIDI != nil ? .orange : .primary)
+                }
+
+                Spacer()
+
+                // Action Buttons: Generate & Hear Target Note
+                HStack(spacing: 8) {
+                    Button(action: {
+                        clientService.generateNewTargetNote()
+                    }) {
+                        Label("Nuova Nota", systemImage: "dice.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .help("Estrai e pronuncia una nuova nota tra gli 88 tasti")
+
+                    if clientService.targetNoteMIDI != nil {
+                        Button(action: {
+                            clientService.generateNewTargetNote()
+                        }) {
+                            Image(systemName: "speaker.wave.2.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .help("Estrai e pronuncia un'altra nota")
+                    }
+                }
+            }
+
+            Divider()
+
+            // Options: Eyes-Closed Speech & Notation Toggle
+            HStack(spacing: 20) {
+                Toggle(isOn: $clientService.speakPressedNotes) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "ear.and.waveform")
+                            .foregroundColor(.purple)
+                        Text("Pronuncia nota premuta (esercitazione ad occhi chiusi)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                .help("Attiva/disattiva la sintesi vocale ad ogni tasto premuto")
+
+                Spacer()
+
+                Toggle(isOn: $clientService.useItalianNotation) {
+                    Text("Notazione Italiana (Do, Re, Mi)")
+                        .font(.caption)
+                }
+                .toggleStyle(.checkbox)
+                .help("Seleziona Notazione Italiana o Inglese (A..G)")
+            }
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.08))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.orange.opacity(0.25), lineWidth: 1)
+        )
     }
 
     private var mainSynthControlsView: some View {
@@ -53,6 +137,10 @@ struct ContentView: View {
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
+                    Spacer()
+                    Text("💡 Suggerimento: tieni premuto un tasto per > 2s per ricevere una nuova nota proposta")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
                 PianoView(clientService: clientService)
             }
@@ -64,7 +152,7 @@ struct ContentView: View {
             HStack {
                 Image(systemName: "terminal")
                     .foregroundColor(.green)
-                Text("Console TCP & Diagnostica SoundFont SF2")
+                Text("Console TCP & Log Piano Trainer")
                     .font(.caption)
                     .fontWeight(.bold)
                     .foregroundColor(.secondary)
@@ -104,7 +192,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .frame(height: 120)
+            .frame(height: 110)
 
             // Custom TCP Command Line Input
             HStack {
@@ -131,15 +219,15 @@ struct ContentView: View {
 
     private var connectionHeaderView: some View {
         HStack(spacing: 12) {
-            Image(systemName: "music.note.house.fill")
+            Image(systemName: "graduationcap.fill")
                 .resizable()
                 .frame(width: 28, height: 28)
-                .foregroundColor(.purple)
+                .foregroundColor(.orange)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("SoundFont A320U.sf2 Player Client")
+                Text("SoundFont Piano Trainer Assistant")
                     .font(.headline)
-                Text("Campionatore Musicale Standalone macOS")
+                Text("Allenatore Vocale Pianoforte ad Occhi Chiusi")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -151,13 +239,13 @@ struct ContentView: View {
                 Text("Host:")
                     .font(.caption)
                 TextField("Host", text: $clientService.host)
-                    .frame(width: 90)
+                    .frame(width: 85)
                     .textFieldStyle(.roundedBorder)
 
                 Text("Porta:")
                     .font(.caption)
                 TextField("Porta", text: $clientService.port)
-                    .frame(width: 50)
+                    .frame(width: 45)
                     .textFieldStyle(.roundedBorder)
             }
             .disabled(clientService.isConnected)

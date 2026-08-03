@@ -3,7 +3,7 @@ import Network
 import SwiftUI
 import Combine
 
-/// Servizio di rete TCP per il client SwiftUI SoundFont A320U.sf2 Standalone.
+/// Servizio di rete TCP per il client SwiftUI Piano Trainer Standalone.
 @MainActor
 final class TCPClientService: ObservableObject {
     @Published var isConnected: Bool = false
@@ -17,6 +17,16 @@ final class TCPClientService: ObservableObject {
     @Published var sf2Program: UInt8 = 0
     @Published var logEntries: [LogEntry] = []
 
+    // Piano Trainer & Speech Assistant
+    @Published var speakPressedNotes: Bool = false // Checkbox per la lettura vocale della nota premuta
+    @Published var useItalianNotation: Bool = false // Notazione Inglese (C4) vs Italiana (Do4)
+    @Published var targetNoteMIDI: UInt8? = nil
+    @Published var targetNoteText: String = "Premere un tasto per > 2s per iniziare"
+    @Published var activeNotes = Set<UInt8>()
+
+    private let speechService = SpeechService()
+    private var pressStartTimes: [UInt8: Date] = [:]
+
     struct LogEntry: Identifiable {
         let id = UUID()
         let timestamp = Date()
@@ -28,7 +38,6 @@ final class TCPClientService: ObservableObject {
     private var connection: NWConnection?
     private let networkQueue = DispatchQueue(label: "AudioTCPGUIClient.network")
     private var pendingData = Data()
-    @Published var activeNotes = Set<UInt8>()
 
     init() {
     }
@@ -128,7 +137,7 @@ final class TCPClientService: ObservableObject {
         connection?.send(content: data, completion: .contentProcessed { _ in })
     }
 
-    // MARK: - Audio Controls
+    // MARK: - Audio & Note Controls
 
     func toggleAudio() {
         if audioRunning {
@@ -141,12 +150,12 @@ final class TCPClientService: ObservableObject {
     }
 
     func sendNoteOn(midi: UInt8, velocity: Double = 100.0) {
-        activeNotes.insert(midi)
+        setNoteActive(midi: midi, active: true)
         sendRawCommand("note_on \(midi) \(Int(velocity))")
     }
 
     func sendNoteOff(midi: UInt8) {
-        activeNotes.remove(midi)
+        setNoteActive(midi: midi, active: false)
         sendRawCommand("note_off \(midi)")
     }
 
@@ -157,9 +166,32 @@ final class TCPClientService: ObservableObject {
     func setNoteActive(midi: UInt8, active: Bool) {
         if active {
             activeNotes.insert(midi)
+            pressStartTimes[midi] = Date()
+
+            // Requisito #2: Se la checkbox è attiva, pronuncia la nota appena premuta
+            if speakPressedNotes {
+                speechService.speakNote(midi, isItalian: useItalianNotation)
+            }
         } else {
             activeNotes.remove(midi)
+
+            // Requisito #1: Se il tasto è stato tenuto premuto per più di 2 secondi, al rilascio propone una nuova nota casuale
+            if let startTime = pressStartTimes.removeValue(forKey: midi) {
+                let duration = Date().timeIntervalSince(startTime)
+                if duration >= 2.0 {
+                    generateNewTargetNote()
+                }
+            }
         }
+    }
+
+    /// Genera e pronuncia una nuova nota casuale tra gli 88 tasti del pianoforte (21 A0 ... 108 C8).
+    func generateNewTargetNote() {
+        let newTarget = NoteNameUtility.randomPianoMIDI()
+        self.targetNoteMIDI = newTarget
+        self.targetNoteText = useItalianNotation ? NoteNameUtility.italianName(for: newTarget) : NoteNameUtility.englishName(for: newTarget)
+        self.speechService.speakProposedNote(newTarget, isItalian: useItalianNotation)
+        addLog("Piano Trainer: Nuova nota proposta -> \(targetNoteText)", isError: false)
     }
 
     func setSF2Program(_ program: UInt8) {
