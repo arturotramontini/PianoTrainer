@@ -70,7 +70,7 @@ struct ContentView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "music.note")
                             .foregroundColor(.cyan)
-                        Text("ULTIMA NOTA SUONATA:")
+                        Text("ULTIMA NOTA:")
                             .font(.caption2)
                             .fontWeight(.bold)
                             .foregroundColor(.secondary)
@@ -80,7 +80,47 @@ struct ContentView: View {
                         .font(.system(size: 24, weight: .black, design: .rounded))
                         .foregroundColor(clientService.lastPlayedNoteMIDI != nil ? .cyan : .gray)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.06))
+                .cornerRadius(8)
+
+                // Dynamic Velocity (Tocco / Dinamica) Display Badge
+                VStack(alignment: .center, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bolt.fill")
+                            .foregroundColor(.yellow)
+                        Text("VELOCITÀ (DINAMICA):")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(clientService.lastVelocityText)
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundColor(clientService.lastVelocity > 0 ? .yellow : .gray)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.06))
+                .cornerRadius(8)
+
+                // Duration (Tempo di pressione) Display Badge
+                VStack(alignment: .center, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "timer")
+                            .foregroundColor(.green)
+                        Text("DURATA PRESSIONE:")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(clientService.lastDurationText)
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundColor(clientService.lastDurationSeconds > 0 ? .green : .gray)
+                }
+                .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .background(Color.black.opacity(0.06))
                 .cornerRadius(8)

@@ -109,7 +109,7 @@ final class GUIMIDIManager: ObservableObject {
                     let velocity = bytes[i + 2]
                     let isNoteOn = velocity > 0
                     Task { @MainActor in
-                        self.clientService?.setNoteActive(midi: note, active: isNoteOn)
+                        self.clientService?.setNoteActive(midi: note, active: isNoteOn, velocity: Double(velocity))
                     }
                     i += 3
                 } else { break }

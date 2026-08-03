@@ -28,6 +28,13 @@ final class TCPClientService: ObservableObject {
     @Published var targetNoteText: String = "Premere un tasto per > 2s per iniziare"
     @Published var lastPlayedNoteMIDI: UInt8? = nil
     @Published var lastPlayedNoteText: String = "-"
+
+    // Dinamica di Tocco (Velocity) & Articolazione (Duration)
+    @Published var lastVelocity: Int = 0
+    @Published var lastVelocityText: String = "-"
+    @Published var lastDurationSeconds: Double = 0.0
+    @Published var lastDurationText: String = "-"
+
     @Published var activeNotes = Set<UInt8>()
 
     private let speechService = SpeechService()
@@ -156,7 +163,7 @@ final class TCPClientService: ObservableObject {
     }
 
     func sendNoteOn(midi: UInt8, velocity: Double = 100.0) {
-        setNoteActive(midi: midi, active: true)
+        setNoteActive(midi: midi, active: true, velocity: velocity)
         sendRawCommand("note_on \(midi) \(Int(velocity))")
     }
 
@@ -169,7 +176,7 @@ final class TCPClientService: ObservableObject {
         activeNotes.contains(midi)
     }
 
-    func setNoteActive(midi: UInt8, active: Bool) {
+    func setNoteActive(midi: UInt8, active: Bool, velocity: Double = 100.0) {
         if active {
             activeNotes.insert(midi)
             pressStartTimes[midi] = Date()
@@ -178,6 +185,17 @@ final class TCPClientService: ObservableObject {
             lastPlayedNoteMIDI = midi
             lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: midi) : NoteNameUtility.englishName(for: midi)
 
+            // Dinamica di Tocco (Velocity)
+            let vel = Int(velocity)
+            lastVelocity = vel
+            if vel <= 40 {
+                lastVelocityText = "\(vel) / 127 (p - piano)"
+            } else if vel <= 85 {
+                lastVelocityText = "\(vel) / 127 (mf - mezzo forte)"
+            } else {
+                lastVelocityText = "\(vel) / 127 (f - forte)"
+            }
+
             // Requisito #2: Se la checkbox è attiva, pronuncia la nota appena premuta
             if speakPressedNotes {
                 speechService.speakNote(midi, isItalian: useItalianNotation)
@@ -185,9 +203,20 @@ final class TCPClientService: ObservableObject {
         } else {
             activeNotes.remove(midi)
 
-            // Requisito #1: Se il tasto è stato tenuto premuto per più di 2 secondi, al rilascio propone una nuova nota casuale
+            // Calcola la durata di pressione (in millisecondi / secondi)
             if let startTime = pressStartTimes.removeValue(forKey: midi) {
                 let duration = Date().timeIntervalSince(startTime)
+                lastDurationSeconds = duration
+                
+                if duration < 0.2 {
+                    lastDurationText = String(format: "%.2f s (Staccato ⚡️)", duration)
+                } else if duration <= 1.0 {
+                    lastDurationText = String(format: "%.2f s (Tenuto 🎼)", duration)
+                } else {
+                    lastDurationText = String(format: "%.2f s (Sostenuto 🎹)", duration)
+                }
+
+                // Requisito #1: Se il tasto è stato tenuto premuto per più di 2 secondi, al rilascio propone una nuova nota casuale
                 if duration >= 2.0 {
                     generateNewTargetNote()
                 }
