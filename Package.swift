@@ -10,17 +10,8 @@ let package = Package(
         .executable(name: "AudioTCPGUIClient", targets: ["AudioTCPGUIClient"])
     ],
     targets: [
-        .target(
-            name: "CAudioEngine",
-            publicHeadersPath: "include",
-            linkerSettings: [
-                .linkedFramework("AudioToolbox"),
-                .linkedFramework("CoreAudio")
-            ]
-        ),
         .executableTarget(
             name: "AudioTCPExperiment",
-            dependencies: ["CAudioEngine"],
             linkerSettings: [
                 .linkedFramework("AVFAudio"),
                 .linkedFramework("AudioToolbox"),

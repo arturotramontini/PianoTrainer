@@ -96,14 +96,7 @@ final class AudioTCPServer {
         let command = first.lowercased()
         switch command {
         case "help":
-            return "OK commands: start stop note_on <midi> <velocity> note_off <midi> mode <0|1|2> program <0-127> set <index> <value> get <index> frames host_time sample_time timing tmax input <count> output <count> status quit"
-
-        case "mode":
-            guard words.count == 2, let modeVal = Int(words[1]) else {
-                return "ERR usage: mode <0=C Engine, 1=SF2 Sampler, 2=Both>"
-            }
-            audio.setSoundMode(modeVal)
-            return "OK mode=\(modeVal) (\(audio.soundModeName(modeVal)))"
+            return "OK commands: start stop note_on <midi> <velocity> note_off <midi> program <0-127> status quit"
 
         case "program":
             guard words.count == 2, let progVal = UInt8(words[1]), progVal <= 127 else {
@@ -127,51 +120,17 @@ final class AudioTCPServer {
                 return "ERR usage: note_on <midi 0...127> <velocity 0...127>"
             }
             audio.enqueueNoteOn(frequency: midiNoteToFrequency(midi), note: midi, velocity: velocity)
-            return String(format: "OK note_on midi=%d frequency=%.3f velocity=%.1f", midi, midiNoteToFrequency(midi), velocity)
+            return String(format: "OK note_on midi=%d velocity=%.1f", midi, velocity)
 
         case "note_off":
             guard words.count == 2 || words.count == 3, let midi = UInt8(words[1]) else {
-                return "ERR usage: note_off <midi 0...127> [release]"
+                return "ERR usage: note_off <midi 0...127>"
             }
-            let release: UInt32
-            if words.count == 3 {
-                guard let parsedRelease = UInt32(words[2]) else {
-                    return "ERR release must be an unsigned integer"
-                }
-                release = parsedRelease
-            } else {
-                release = 0
-            }
-            audio.enqueueNoteOff(note: midi, sustainOff: release)
+            audio.enqueueNoteOff(note: midi)
             return "OK note_off midi=\(midi)"
 
-        case "set":
-            guard words.count == 3, let index = UInt32(words[1]), let value = Double(words[2]) else {
-                return "ERR usage: set <index 0...255> <value>"
-            }
-            audio.setValue1(index, value)
-            return "OK parameter[\(min(index, 255))]=\(value)"
-
-        case "get":
-            guard words.count == 2, let index = UInt32(words[1]) else { return "ERR usage: get <index>" }
-            return "OK parameter[\(min(index, 255))]=\(audio.getValue1(index))"
-
-        case "frames": return "OK frames=\(audio.getFrames())"
-        case "host_time": return "OK host_time=\(audio.getHostTime())"
-        case "sample_time": return "OK sample_time=\(audio.getSampleTime())"
-        case "tmax": return "OK tmax_seconds=\(audio.getTmax())"
-        case "status": return "OK audio_running=\(audio.isRunning) clients=\(clients.count)"
-
-        case "timing":
-            let t = audio.getLastTiming()
-            return "OK frames=\(t.frames) counter=\(t.frameCounter) duration=\(t.duration) delta=\(t.delta)"
-
-        case "input", "output":
-            guard words.count == 2, let count = Int(words[1]), count >= 0, count <= 256 else {
-                return "ERR usage: \(command) <count 0...256>"
-            }
-            let values = command == "input" ? audio.getInputBuffer(count: count) : audio.getOutputBuffer(count: count)
-            return "OK \(command)=" + values.map { String(format: "%.5f", $0) }.joined(separator: ",")
+        case "status":
+            return "OK audio_running=\(audio.isRunning) program=\(audio.currentProgram) clients=\(clients.count)"
 
         case "quit", "exit":
             return "OK bye"

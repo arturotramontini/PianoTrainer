@@ -4,41 +4,32 @@ struct ContentView: View {
     @StateObject private var clientService = TCPClientService()
     @StateObject private var guiMidiManager = GUIMIDIManager()
     @State private var customCommand: String = ""
-    @State private var selectedPreset: TCPClientService.Preset = TCPClientService.Preset.defaultPresets[0]
     @AppStorage("showConsole") private var showConsole: Bool = true
 
     @State private var keyboardMonitor = KeyboardMonitor()
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             // Header & Connection Bar
             connectionHeaderView
 
-            Divider().background(Color.white.opacity(0.15))
+            // Main Controls and Piano Keyboard
+            mainSynthControlsView
 
-            // Main Content Area
+            // Console TCP Panel (Drawer)
             if showConsole {
-                HSplitView {
-                    mainSynthControlsView
-                        .padding(.trailing, 8)
-                        .frame(minWidth: 480)
-
-                    consoleLogView
-                        .padding(.leading, 8)
-                        .frame(minWidth: 260, idealWidth: 320)
-                }
-            } else {
-                mainSynthControlsView
-                    .frame(maxWidth: .infinity)
+                Divider()
+                consoleLogView
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .padding(16)
         .frame(
-            minWidth: showConsole ? 800 : 560,
-            idealWidth: showConsole ? 920 : 640,
+            minWidth: showConsole ? 750 : 540,
+            idealWidth: showConsole ? 850 : 600,
             maxWidth: .infinity,
-            minHeight: 600,
-            idealHeight: 720,
+            minHeight: 480,
+            idealHeight: 560,
             maxHeight: .infinity
         )
         .background(Color(nsColor: .windowBackgroundColor))
@@ -54,74 +45,11 @@ struct ContentView: View {
 
     private var mainSynthControlsView: some View {
         VStack(spacing: 16) {
-            // Transport & Presets Bar
+            // Transport & Instrument Bar
             transportAndPresetsView
 
-            // Synth Parameters Sliders
-            synthParametersView
-
-            // Waveform Oscilloscope (Rolling 1-Second View)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Image(systemName: "waveform.path.ecg")
-                        .foregroundColor(.cyan)
-                    Text("Oscilloscopio Uscita Synth")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-
-                    // Selettore Timebase per lo scorrimento continuo
-                    HStack(spacing: 4) {
-                        Text("Timebase:")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-
-                        ForEach([0.05, 0.2, 0.5, 1.0, 2.0, 5.0], id: \.self) { seconds in
-                            Button(action: { clientService.timebaseSeconds = seconds }) {
-                                Text(seconds >= 1.0 ? String(format: "%.1f s", seconds) : "\(Int(seconds * 1000)) ms")
-                                    .font(.system(size: 9, weight: .bold))
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(clientService.timebaseSeconds == seconds ? .cyan : .gray)
-                        }
-                    }
-
-                    Spacer()
-
-                    // Selettore Scala Verticale (Gain / Volts-per-div)
-                    HStack(spacing: 4) {
-                        Text("Gain V:")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-
-                        ForEach([0.5, 1.0, 2.0, 4.0, 8.0], id: \.self) { gain in
-                            Button(action: { clientService.verticalGain = gain }) {
-                                Text(gain < 1.0 ? "0.5x" : "\(Int(gain))x")
-                                    .font(.system(size: 9, weight: .bold))
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(clientService.verticalGain == gain ? .blue : .gray)
-                        }
-                    }
-
-                    Spacer()
-
-                    Text("Latenza: \(clientService.tmaxInfo)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                }
-                WaveformView(
-                    samples: clientService.rollingBuffer,
-                    timebaseSeconds: clientService.timebaseSeconds,
-                    verticalGain: clientService.verticalGain
-                )
-                .frame(minHeight: 110, maxHeight: .infinity)
-            }
-
             // Interactive Piano Keyboard
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Image(systemName: "pianokeys")
                         .foregroundColor(.indigo)
@@ -140,7 +68,7 @@ struct ContentView: View {
             HStack {
                 Image(systemName: "terminal")
                     .foregroundColor(.green)
-                Text("Console TCP & Diagnostica")
+                Text("Console TCP & Diagnostica SoundFont SF2")
                     .font(.caption)
                     .fontWeight(.bold)
                     .foregroundColor(.secondary)
@@ -159,21 +87,20 @@ struct ContentView: View {
                         ForEach(clientService.logEntries) { entry in
                             HStack(alignment: .top, spacing: 6) {
                                 Text(entry.timestamp, style: .time)
-                                    .font(.system(size: 9, design: .monospaced))
+                                    .font(.caption2)
                                     .foregroundColor(.gray)
-                                Text(entry.isOutgoing ? "➔" : "⬅")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(entry.isOutgoing ? .blue : .green)
+
                                 Text(entry.message)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(entry.isError ? .red : (entry.isOutgoing ? .cyan : .white))
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(entry.isError ? .red : (entry.isOutgoing ? .cyan : .primary))
                             }
                             .id(entry.id)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)
                 }
-                .background(Color.black.opacity(0.8))
+                .background(Color.black.opacity(0.85))
                 .cornerRadius(6)
                 .onChange(of: clientService.logEntries.count) { _ in
                     if let last = clientService.logEntries.last {
@@ -181,10 +108,11 @@ struct ContentView: View {
                     }
                 }
             }
+            .frame(height: 120)
 
-            // Raw TCP Command Sender
+            // Custom TCP Command Line Input
             HStack {
-                TextField("Comando TCP (es: get 1, timing)...", text: $customCommand)
+                TextField("Invia comando TCP (es: note_on 60 100, program 19...)", text: $customCommand)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit {
                         sendCustomCommand()
@@ -207,15 +135,15 @@ struct ContentView: View {
 
     private var connectionHeaderView: some View {
         HStack(spacing: 12) {
-            Image(systemName: "waveform.circle.fill")
+            Image(systemName: "music.note.house.fill")
                 .resizable()
                 .frame(width: 28, height: 28)
-                .foregroundColor(.cyan)
+                .foregroundColor(.purple)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("AudioTCP Synthesizer Client")
+                Text("SoundFont A320U.sf2 Player Client")
                     .font(.headline)
-                Text("Controllo Remoto TCP per AudioSynth macOS")
+                Text("Campionatore Musicale Standalone macOS")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -307,156 +235,44 @@ struct ContentView: View {
     }
 
     private var transportAndPresetsView: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             // Audio Engine Start/Stop
             Button(action: { clientService.toggleAudio() }) {
                 HStack {
                     Image(systemName: clientService.audioRunning ? "pause.fill" : "play.fill")
-                    Text(clientService.audioRunning ? "Arresta Audio Synth" : "Avvia Audio Synth")
+                    Text(clientService.audioRunning ? "Arresta Audio Player" : "Avvia Audio Player")
                 }
                 .fontWeight(.bold)
             }
             .buttonStyle(.borderedProminent)
-            .tint(clientService.audioRunning ? .orange : .green)
+            .tint(clientService.audioRunning ? .orange : .purple)
             .disabled(!clientService.isConnected)
 
             Spacer()
 
-            // Selettore Modalità Suono (Motore C vs SF2 vs Entrambi)
-            HStack(spacing: 4) {
-                Text("Motore:")
+            // Selettore Strumento SoundFont SF2
+            HStack(spacing: 6) {
+                Image(systemName: "guitars.fill")
+                    .foregroundColor(.purple)
+                Text("Strumento General MIDI:")
                     .font(.caption)
-                    .fontWeight(.medium)
+                    .fontWeight(.bold)
                 
-                Picker("Motore Suono", selection: Binding(
-                    get: { clientService.soundMode },
-                    set: { clientService.setSoundMode($0) }
+                Picker("Strumento SF2", selection: Binding(
+                    get: { clientService.sf2Program },
+                    set: { clientService.setSF2Program($0) }
                 )) {
-                    Text("Motore C Custom").tag(0)
-                    Text("SoundFont SF2").tag(1)
-                    Text("Entrambi / Layer").tag(2)
+                    ForEach(TCPClientService.SF2Instrument.popularInstruments) { inst in
+                        Text(inst.name).tag(inst.id)
+                    }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 150)
+                .frame(width: 220)
                 .disabled(!clientService.isConnected)
             }
-
-            // Selettore Strumento SoundFont SF2
-            if clientService.soundMode != 0 {
-                HStack(spacing: 4) {
-                    Text("Strumento:")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    
-                    Picker("Strumento SF2", selection: Binding(
-                        get: { clientService.sf2Program },
-                        set: { clientService.setSF2Program($0) }
-                    )) {
-                        ForEach(TCPClientService.SF2Instrument.popularInstruments) { inst in
-                            Text(inst.name).tag(inst.id)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .frame(width: 180)
-                    .disabled(!clientService.isConnected)
-                }
-            }
-
-            // Presets Synth C Dropdown
-            HStack(spacing: 4) {
-                Text("Preset C:")
-                    .font(.caption)
-                    .fontWeight(.medium)
-
-                Picker("Preset", selection: $selectedPreset) {
-                    ForEach(TCPClientService.Preset.defaultPresets) { preset in
-                        Text(preset.name).tag(preset)
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(width: 130)
-                .onChange(of: selectedPreset) { newPreset in
-                    clientService.applyPreset(newPreset)
-                }
-            }
         }
-        .padding(8)
-        .background(Color.black.opacity(0.05))
+        .padding(10)
+        .background(Color.purple.opacity(0.06))
         .cornerRadius(8)
-    }
-
-    private var synthParametersView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Parametri di Sintesi Audio")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(.secondary)
-
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
-                // Parametro 1: Sustain / Release
-                GridRow {
-                    Text("Sustain / Release (p1)")
-                        .font(.caption)
-                    Slider(value: $clientService.paramSustainRelease, in: 0.1...10.0, step: 0.1) {
-                        Text("Sustain")
-                    } onEditingChanged: { _ in
-                        clientService.setParam(1, value: clientService.paramSustainRelease)
-                    }
-                    Text(String(format: "%.1f", clientService.paramSustainRelease))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .frame(width: 40)
-                }
-
-                // Parametro 2: Frequenza Modulazione
-                GridRow {
-                    Text("Mod Freq Hz (p2)")
-                        .font(.caption)
-                    Slider(value: $clientService.paramModFreq, in: 0.5...40.0, step: 0.25) {
-                        Text("Mod Freq")
-                    } onEditingChanged: { _ in
-                        clientService.setParam(2, value: clientService.paramModFreq)
-                    }
-                    Text(String(format: "%.2f Hz", clientService.paramModFreq))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .frame(width: 60)
-                }
-
-                // Parametro 3: Profondità Modulazione
-                GridRow {
-                    Text("Mod Depth (p3)")
-                        .font(.caption)
-                    Slider(value: $clientService.paramModDepth, in: 0.0...0.2, step: 0.005) {
-                        Text("Mod Depth")
-                    } onEditingChanged: { _ in
-                        clientService.setParam(3, value: clientService.paramModDepth)
-                    }
-                    Text(String(format: "%.3f", clientService.paramModDepth))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .frame(width: 40)
-                }
-
-                // Parametro 4: Volume
-                GridRow {
-                    Text("Volume Finale (p4)")
-                        .font(.caption)
-                    Slider(value: $clientService.paramVolume, in: 0.0...50.0, step: 1.0) {
-                        Text("Volume")
-                    } onEditingChanged: { _ in
-                        clientService.setParam(4, value: clientService.paramVolume)
-                    }
-                    Text(String(format: "%.0f", clientService.paramVolume))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .frame(width: 40)
-                }
-            }
-            .disabled(!clientService.isConnected)
-        }
-        .padding(12)
-        .background(Color.black.opacity(0.04))
-        .cornerRadius(10)
     }
 }

@@ -3,7 +3,7 @@ import Network
 import SwiftUI
 import Combine
 
-/// Servizio di rete TCP per il client SwiftUI AudioTCP.
+/// Servizio di rete TCP per il client SwiftUI SoundFont A320U.sf2 Standalone.
 @MainActor
 final class TCPClientService: ObservableObject {
     @Published var isConnected: Bool = false
@@ -13,24 +13,8 @@ final class TCPClientService: ObservableObject {
     @Published var audioRunning: Bool = false
     @Published var clientCount: Int = 0
 
-    // Modalità Suono (0 = Motore C, 1 = SF2 Sampler, 2 = Entrambi)
-    @Published var soundMode: Int = 0
+    // Strumento SoundFont SF2
     @Published var sf2Program: UInt8 = 0
-
-    // Parametri synth (indici 1..5)
-    @Published var paramSustainRelease: Double = 1.5   // Param 1
-    @Published var paramModFreq: Double = 7.83         // Param 2
-    @Published var paramModDepth: Double = 0.02        // Param 3
-    @Published var paramVolume: Double = 20.0          // Param 4
-
-    // Diagnostics & Buffers
-    @Published var outputSamples: [Float] = Array(repeating: 0.0, count: 128)
-    @Published var rollingBuffer: [Float] = Array(repeating: 0.0, count: 1000)
-    @Published var timebaseSeconds: Double = 1.0 // 0.05, 0.2, 0.5, 1.0, 2.0, 5.0
-    @Published var verticalGain: Double = 1.0   // 0.5x, 1x, 2x, 4x, 8x
-    @Published var inputSamples: [Float] = Array(repeating: 0.0, count: 128)
-    @Published var timingInfo: String = "N/A"
-    @Published var tmaxInfo: String = "0.0 ms"
     @Published var logEntries: [LogEntry] = []
 
     struct LogEntry: Identifiable {
@@ -44,11 +28,9 @@ final class TCPClientService: ObservableObject {
     private var connection: NWConnection?
     private let networkQueue = DispatchQueue(label: "AudioTCPGUIClient.network")
     private var pendingData = Data()
-    private var timer: Timer?
     private var activeNotes = Set<UInt8>()
 
     init() {
-        // Auto-connect su avvio se desiderato
     }
 
     func connect() {
@@ -70,19 +52,16 @@ final class TCPClientService: ObservableObject {
                 case .ready:
                     self.isConnected = true
                     self.isConnecting = false
-                    self.addLog("Connesso al server AudioTCP!", isError: false)
-                    self.startPolling()
+                    self.addLog("Connesso al server SoundFont SF2!", isError: false)
                     self.refreshStatus()
                 case .failed(let error):
                     self.isConnected = false
                     self.isConnecting = false
                     self.addLog("Errore connessione: \(error.localizedDescription)", isError: true)
-                    self.stopPolling()
                 case .cancelled:
                     self.isConnected = false
                     self.isConnecting = false
                     self.addLog("Disconnesso dal server.", isError: false)
-                    self.stopPolling()
                 default:
                     break
                 }
@@ -94,7 +73,6 @@ final class TCPClientService: ObservableObject {
     }
 
     func disconnect() {
-        stopPolling()
         connection?.cancel()
         connection = nil
         isConnected = false
@@ -131,31 +109,11 @@ final class TCPClientService: ObservableObject {
         let isErr = line.hasPrefix("ERR")
         addLog("Server: \(line)", isError: isErr, isOutgoing: false)
 
-        if line.hasPrefix("OK status") || line.hasPrefix("OK audio_running") {
-            // OK audio_running=true clients=1
+        if line.hasPrefix("OK audio_running") || line.hasPrefix("OK status") {
             if line.contains("audio_running=true") {
                 self.audioRunning = true
             } else if line.contains("audio_running=false") {
                 self.audioRunning = false
-            }
-        } else if line.hasPrefix("OK output=") {
-            let sampleStr = line.replacingOccurrences(of: "OK output=", with: "")
-            let vals = sampleStr.split(separator: ",").compactMap { Float($0) }
-            if !vals.isEmpty {
-                self.outputSamples = vals
-                
-                // Mantiene un buffer continuo per lo scorrimento da destra a sinistra (fino a 10.000 campioni = 5 secondi)
-                self.rollingBuffer.append(contentsOf: vals)
-                let maxPoints = 10000
-                if self.rollingBuffer.count > maxPoints {
-                    self.rollingBuffer.removeFirst(self.rollingBuffer.count - maxPoints)
-                }
-            }
-        } else if line.hasPrefix("OK timing") {
-            self.timingInfo = line.replacingOccurrences(of: "OK ", with: "")
-        } else if line.hasPrefix("OK tmax_seconds=") {
-            if let sec = Double(line.replacingOccurrences(of: "OK tmax_seconds=", with: "")) {
-                self.tmaxInfo = String(format: "%.2f ms", sec * 1000.0)
             }
         }
     }
@@ -170,7 +128,7 @@ final class TCPClientService: ObservableObject {
         connection?.send(content: data, completion: .contentProcessed { _ in })
     }
 
-    // MARK: - Core Audio Controls
+    // MARK: - Audio Controls
 
     func toggleAudio() {
         if audioRunning {
@@ -204,52 +162,13 @@ final class TCPClientService: ObservableObject {
         }
     }
 
-    func setSoundMode(_ mode: Int) {
-        soundMode = mode
-        sendRawCommand("mode \(mode)")
-    }
-
     func setSF2Program(_ program: UInt8) {
         sf2Program = program
         sendRawCommand("program \(program)")
     }
 
-    func setParam(_ index: Int, value: Double) {
-        sendRawCommand("set \(index) \(String(format: "%.4f", value))")
-    }
-
-    func applyPreset(_ preset: Preset) {
-        paramSustainRelease = preset.sustain
-        paramModFreq = preset.modFreq
-        paramModDepth = preset.modDepth
-        paramVolume = preset.volume
-
-        setParam(1, value: preset.sustain)
-        setParam(2, value: preset.modFreq)
-        setParam(3, value: preset.modDepth)
-        setParam(4, value: preset.volume)
-    }
-
     func refreshStatus() {
         sendRawCommand("status")
-        sendRawCommand("timing")
-        sendRawCommand("tmax")
-    }
-
-    private func startPolling() {
-        timer?.invalidate()
-        // Richiede campioni ogni 50ms per un'animazione di scorrimento a 20 FPS fluida
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self = self, self.isConnected else { return }
-                self.sendRawCommand("output 256")
-            }
-        }
-    }
-
-    private func stopPolling() {
-        timer?.invalidate()
-        timer = nil
     }
 
     private func addLog(_ message: String, isError: Bool = false, isOutgoing: Bool = false) {
@@ -258,23 +177,6 @@ final class TCPClientService: ObservableObject {
         if logEntries.count > 100 {
             logEntries.removeFirst(logEntries.count - 100)
         }
-    }
-
-    struct Preset: Identifiable, Hashable {
-        let id = UUID()
-        let name: String
-        let sustain: Double
-        let modFreq: Double
-        let modDepth: Double
-        let volume: Double
-
-        static let defaultPresets: [Preset] = [
-            Preset(name: "Default (Standard)", sustain: 1.5, modFreq: 7.83, modDepth: 0.02, volume: 20.0),
-            Preset(name: "Long Release (Ambient)", sustain: 0.3, modFreq: 4.0, modDepth: 0.04, volume: 22.0),
-            Preset(name: "Fast Pluck (Short)", sustain: 5.0, modFreq: 12.0, modDepth: 0.01, volume: 25.0),
-            Preset(name: "Vibrato Warm", sustain: 1.2, modFreq: 6.0, modDepth: 0.08, volume: 18.0),
-            Preset(name: "Tremolo Extreme", sustain: 1.0, modFreq: 18.0, modDepth: 0.15, volume: 16.0)
-        ]
     }
 
     struct SF2Instrument: Identifiable, Hashable {

@@ -146,19 +146,7 @@ public final class MIDIManager: @unchecked Sendable {
                 } else { break }
             } else if messageType == 0xB0 { // Control Change (CC)
                 if i + 2 < length {
-                    let ccNum = bytes[i + 1]
-                    let ccVal = bytes[i + 2]
-                    
-                    if ccNum == 1 { // Modulation Wheel
-                        let normDepth = (Double(ccVal) / 127.0) * 0.2
-                        audio.setValue1(3, normDepth)
-                    } else if ccNum == 7 { // Volume Slider / Pedal
-                        let normVol = (Double(ccVal) / 127.0) * 40.0
-                        audio.setValue1(4, normVol)
-                    } else if ccNum == 64 { // Sustain Pedal
-                        let sustainVal = ccVal >= 64 ? 0.2 : 1.5
-                        audio.setValue1(1, sustainVal)
-                    }
+                    // CC events can be extended for SF2 volume / expression
                     i += 3
                 } else { break }
             } else {
