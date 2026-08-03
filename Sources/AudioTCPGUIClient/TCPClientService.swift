@@ -19,9 +19,15 @@ final class TCPClientService: ObservableObject {
 
     // Piano Trainer & Speech Assistant
     @Published var speakPressedNotes: Bool = false // Checkbox per la lettura vocale della nota premuta
-    @Published var useItalianNotation: Bool = false // Notazione Inglese (C4) vs Italiana (Do4)
+    @Published var useItalianNotation: Bool = false { // Notazione Inglese (C4) vs Italiana (Do4)
+        didSet {
+            updateDisplayedNoteNames()
+        }
+    }
     @Published var targetNoteMIDI: UInt8? = nil
     @Published var targetNoteText: String = "Premere un tasto per > 2s per iniziare"
+    @Published var lastPlayedNoteMIDI: UInt8? = nil
+    @Published var lastPlayedNoteText: String = "-"
     @Published var activeNotes = Set<UInt8>()
 
     private let speechService = SpeechService()
@@ -168,6 +174,10 @@ final class TCPClientService: ObservableObject {
             activeNotes.insert(midi)
             pressStartTimes[midi] = Date()
 
+            // Aggiorna l'ultima nota suonata (visualizzata in modo permanente)
+            lastPlayedNoteMIDI = midi
+            lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: midi) : NoteNameUtility.englishName(for: midi)
+
             // Requisito #2: Se la checkbox è attiva, pronuncia la nota appena premuta
             if speakPressedNotes {
                 speechService.speakNote(midi, isItalian: useItalianNotation)
@@ -182,6 +192,16 @@ final class TCPClientService: ObservableObject {
                     generateNewTargetNote()
                 }
             }
+        }
+    }
+
+    /// Aggiorna i testi visualizzati quando si passa da notazione inglese ad italiana o viceversa.
+    func updateDisplayedNoteNames() {
+        if let target = targetNoteMIDI {
+            targetNoteText = useItalianNotation ? NoteNameUtility.italianName(for: target) : NoteNameUtility.englishName(for: target)
+        }
+        if let last = lastPlayedNoteMIDI {
+            lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: last) : NoteNameUtility.englishName(for: last)
         }
     }
 

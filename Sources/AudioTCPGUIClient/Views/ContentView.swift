@@ -52,16 +52,38 @@ struct ContentView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "target")
                             .foregroundColor(.orange)
-                        Text("PIANO TRAINER - NOTA PROPOSTA:")
+                        Text("NOTA PROPOSTA DAL MAC:")
                             .font(.caption2)
                             .fontWeight(.bold)
                             .foregroundColor(.secondary)
                     }
 
                     Text(clientService.targetNoteText)
-                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .font(.system(size: 24, weight: .black, design: .rounded))
                         .foregroundColor(clientService.targetNoteMIDI != nil ? .orange : .primary)
                 }
+
+                Spacer()
+
+                // Last Played Note Display Badge (Permanently Visible)
+                VStack(alignment: .center, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "music.note")
+                            .foregroundColor(.cyan)
+                        Text("ULTIMA NOTA SUONATA:")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(clientService.lastPlayedNoteText)
+                        .font(.system(size: 24, weight: .black, design: .rounded))
+                        .foregroundColor(clientService.lastPlayedNoteMIDI != nil ? .cyan : .gray)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.06))
+                .cornerRadius(8)
 
                 Spacer()
 

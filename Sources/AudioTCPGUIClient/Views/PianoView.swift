@@ -9,8 +9,8 @@ struct PianoKey: Identifiable {
 
 struct PianoView: View {
     @ObservedObject var clientService: TCPClientService
-    var startMidi: UInt8 = 36 // C2 (comprende C2, C3, C4, C5 fino a C6)
-    var noteCount: Int = 49   // 4 ottave + C6 finale (36...84)
+    var startMidi: UInt8 = 21 // A0 (Pianoforte completo 88 tasti: A0 ... C8)
+    var noteCount: Int = 88   // 88 tasti (52 bianchi + 36 neri)
 
     private var keys: [PianoKey] {
         let noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
