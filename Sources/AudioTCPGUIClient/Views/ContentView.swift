@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var clientService = TCPClientService()
+    @StateObject private var guiMidiManager = GUIMIDIManager()
     @State private var customCommand: String = ""
     @State private var selectedPreset: TCPClientService.Preset = TCPClientService.Preset.defaultPresets[0]
     @AppStorage("showConsole") private var showConsole: Bool = true
@@ -221,6 +222,26 @@ struct ContentView: View {
                 Text(clientService.isConnected ? "Connesso" : "Disconnesso")
                     .font(.caption2)
                     .fontWeight(.medium)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.black.opacity(0.1))
+            .cornerRadius(12)
+
+            // Hardware MIDI Devices Badge
+            HStack(spacing: 4) {
+                Image(systemName: "pianokeys")
+                    .foregroundColor(guiMidiManager.connectedDevices.isEmpty ? .gray : .purple)
+                if guiMidiManager.connectedDevices.isEmpty {
+                    Text("Nessun MIDI USB")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                } else {
+                    Text("MIDI: \(guiMidiManager.connectedDevices.joined(separator: ", "))")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.purple)
+                }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

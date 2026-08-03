@@ -1,6 +1,8 @@
 import Dispatch
 
 let audio = AudioSynth()
+let midiManager = MIDIManager(audio: audio)
+midiManager.start()
 
 do {
     let server = try AudioTCPServer(audio: audio, port: 9876)

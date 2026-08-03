@@ -25,6 +25,7 @@ let package = Package(
                 .linkedFramework("AVFAudio"),
                 .linkedFramework("AudioToolbox"),
                 .linkedFramework("CoreAudio"),
+                .linkedFramework("CoreMIDI"),
                 .linkedFramework("Network")
             ]
         ),
@@ -39,7 +40,8 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("Network"),
                 .linkedFramework("SwiftUI"),
-                .linkedFramework("AppKit")
+                .linkedFramework("AppKit"),
+                .linkedFramework("CoreMIDI")
             ]
         )
     ]
