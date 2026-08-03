@@ -78,6 +78,11 @@ public final class MIDIManager: @unchecked Sendable {
                 name = "Dispositivo MIDI #\(i + 1)"
             }
 
+            // Ignora il driver di sistema IAC Bus per evitare interferenze di sintesi Apple DLS
+            if name.contains("IAC") {
+                continue
+            }
+
             if status == noErr {
                 deviceNames.append(name)
             }
@@ -131,6 +136,7 @@ public final class MIDIManager: @unchecked Sendable {
                     let note = bytes[i + 1]
                     let velocity = bytes[i + 2]
                     if velocity > 0 {
+                        print("[\u{001B}[35mMIDI Input Hardware\u{001B}[0m] NoteOn: nota=\(note) vel=\(velocity)")
                         let freq = midiNoteToFrequency(note)
                         audio.enqueueNoteOn(frequency: freq, note: note, velocity: Double(velocity))
                     } else {

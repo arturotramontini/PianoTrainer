@@ -74,7 +74,7 @@ public final class SF2SamplerEngine: @unchecked Sendable {
                 bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB),
                 bankLSB: 0
             )
-            // Applica il cambio programma a tutti i 16 canali MIDI (0..15)
+            // Applica il cambio programma sia per Bank 121 che per Bank 0 su tutti i 16 canali MIDI (0..15)
             for ch in UInt8(0)...15 {
                 sampler.sendProgramChange(
                     program,
@@ -82,15 +82,25 @@ public final class SF2SamplerEngine: @unchecked Sendable {
                     bankLSB: 0,
                     onChannel: ch
                 )
+                sampler.sendProgramChange(
+                    program,
+                    bankMSB: 0,
+                    bankLSB: 0,
+                    onChannel: ch
+                )
             }
-            print("[\u{001B}[32m✓\u{001B}[0m] Strumento SoundFont SF2 attivato a Program \(program) su tutti i canali MIDI.")
+            print("[\u{001B}[32m✓\u{001B}[0m] Strumento SoundFont SF2 attivato a Program \(program) (Bank 0 & 121) su tutti i canali MIDI.")
         } catch {
             print("[\u{001B}[31m✗\u{001B}[0m] Errore caricamento strumento SF2 Program \(program): \(error)")
         }
     }
 
     public func noteOn(note: UInt8, velocity: UInt8) {
-        guard isRunning else { return }
+        guard isRunning else {
+            print("[\u{001B}[31m✗\u{001B}[0m] SF2SamplerEngine non in esecuzione!")
+            return
+        }
+        print("[\u{001B}[32m▶\u{001B}[0m] SF2 NoteOn: nota=\(note) vel=\(velocity) program=\(currentProgram)")
         sampler.startNote(note, withVelocity: velocity, onChannel: 0)
     }
 
