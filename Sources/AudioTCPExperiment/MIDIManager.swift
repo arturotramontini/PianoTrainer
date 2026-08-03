@@ -126,6 +126,7 @@ public final class MIDIManager: @unchecked Sendable {
         }
 
         var i = 0
+        print("[\u{001B}[35mRAW MIDI\u{001B}[0m] Bytes (\(bytes.count)): \(bytes.map { String(format: "0x%02X", $0) }.joined(separator: " "))")
         while i < length {
             let statusByte = bytes[i]
             let messageType = statusByte & 0xF0
