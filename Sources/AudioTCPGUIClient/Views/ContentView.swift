@@ -315,10 +315,3 @@ struct ContentView: View {
         .cornerRadius(10)
     }
 }
-            .disabled(!clientService.isConnected)
-        }
-        .padding(12)
-        .background(Color.black.opacity(0.04))
-        .cornerRadius(10)
-    }
-}
