@@ -3,11 +3,11 @@ import AppKit
 
 /// Gestore degli eventi di tastiera PC per suonare le note del pianoforte.
 final class KeyboardMonitor {
-    private var monitor: Any?
+    private var localMonitor: Any?
+    private var globalMonitor: Any?
     private var pressedKeys = Set<UInt8>()
 
     // Mappatura tasti: 1..8 -> C4, D4, E4, F4, G4, A4, B4, C5
-    // Supporto aggiuntivo fila alfa (A-S-D-F-G-H-J-K per ottava 3 e Q-W-E-R-T-Y-U-I per ottava 4)
     private let keyMap: [Character: UInt8] = [
         // Tasti 1..8 (Richiesti)
         "1": 60, // C4
@@ -31,7 +31,8 @@ final class KeyboardMonitor {
     func startMonitoring(clientService: TCPClientService) {
         stopMonitoring()
 
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+        // Monitor Locale (quando la finestra dell'app GUI è a fuoco)
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self = self else { return event }
 
             // Non intercettare se l'utente sta scrivendo in un campo di testo
@@ -64,12 +65,42 @@ final class KeyboardMonitor {
 
             return event
         }
+
+        // Monitor Globale (come backup quando l'app è in primo piano)
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+            guard let self = self, NSApp.isActive else { return }
+
+            guard let chars = event.charactersIgnoringModifiers, let firstChar = chars.first,
+                  let midi = self.keyMap[firstChar] else {
+                return
+            }
+
+            if event.type == .keyDown {
+                if !event.isARepeat && !self.pressedKeys.contains(midi) {
+                    self.pressedKeys.insert(midi)
+                    Task { @MainActor in
+                        clientService.sendNoteOn(midi: midi, velocity: 100.0)
+                    }
+                }
+            } else if event.type == .keyUp {
+                if self.pressedKeys.contains(midi) {
+                    self.pressedKeys.remove(midi)
+                    Task { @MainActor in
+                        clientService.sendNoteOff(midi: midi)
+                    }
+                }
+            }
+        }
     }
 
     func stopMonitoring() {
-        if let monitor = monitor {
+        if let monitor = localMonitor {
             NSEvent.removeMonitor(monitor)
-            self.monitor = nil
+            self.localMonitor = nil
+        }
+        if let monitor = globalMonitor {
+            NSEvent.removeMonitor(monitor)
+            self.globalMonitor = nil
         }
         pressedKeys.removeAll()
     }
