@@ -9,8 +9,8 @@ struct PianoKey: Identifiable {
 
 struct PianoView: View {
     @ObservedObject var clientService: TCPClientService
-    var startMidi: UInt8 = 48 // C3
-    var noteCount: Int = 25   // 2 ottave + C finale (48...72)
+    var startMidi: UInt8 = 36 // C2 (comprende C2, C3, C4, C5 fino a C6)
+    var noteCount: Int = 49   // 4 ottave + C6 finale (36...84)
 
     private var keys: [PianoKey] {
         let noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -20,7 +20,8 @@ struct PianoView: View {
         for midi in startMidi..<(startMidi + UInt8(noteCount)) {
             let noteInOctave = Int(midi % 12)
             let isBlack = [1, 3, 6, 8, 10].contains(noteInOctave)
-            let name = "\(noteNames[noteInOctave])\(Int(midi / 12) - 1)"
+            let octaveNumber = Int(midi / 12) - 1
+            let name = "\(noteNames[noteInOctave])\(octaveNumber)"
             
             result.append(PianoKey(
                 id: midi,
@@ -42,36 +43,75 @@ struct PianoView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let totalWidth = geometry.size.width
-            let whiteKeyWidth = totalWidth / CGFloat(totalWhiteKeys)
+            let availableWidth = geometry.size.width
+            // Calcola la larghezza minima del tasto bianco per garantire la leggibilità di 49 tasti
+            let whiteKeyWidth = max(20.0, availableWidth / CGFloat(totalWhiteKeys))
+            let totalKeyboardWidth = whiteKeyWidth * CGFloat(totalWhiteKeys)
             let height = geometry.size.height
-            let blackKeyWidth = whiteKeyWidth * 0.6
-            let blackKeyHeight = height * 0.6
+            let blackKeyWidth = whiteKeyWidth * 0.62
+            let blackKeyHeight = height * 0.58
 
-            ZStack(alignment: .topLeading) {
-                // Tasti Bianchi
-                HStack(spacing: 2) {
-                    ForEach(keys.filter { !$0.isBlack }) { key in
+            ScrollView(.horizontal, showsIndicators: true) {
+                ZStack(alignment: .topLeading) {
+                    // Tasti Bianchi
+                    HStack(spacing: 1) {
+                        ForEach(keys.filter { !$0.isBlack }) { key in
+                            let isActive = clientService.isNoteActive(key.id)
+                            
+                            VStack {
+                                Spacer()
+                                Text(key.noteName)
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(isActive ? .white : .black.opacity(0.75))
+                                    .padding(.bottom, 6)
+                            }
+                            .frame(width: whiteKeyWidth - 1, height: height)
+                            .background(
+                                LinearGradient(
+                                    colors: isActive ? [.cyan, .blue] : [.white, Color(white: 0.92)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .cornerRadius(5, corners: [.bottomLeft, .bottomRight])
+                            .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 1.5)
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in
+                                        if !clientService.isNoteActive(key.id) {
+                                            clientService.sendNoteOn(midi: key.id)
+                                        }
+                                    }
+                                    .onEnded { _ in
+                                        clientService.sendNoteOff(midi: key.id)
+                                    }
+                            )
+                        }
+                    }
+
+                    // Tasti Neri posizionati accuratamente sulle giunzioni
+                    ForEach(keys.filter { $0.isBlack }) { key in
+                        let xOffset = (CGFloat(key.whiteIndex + 1) * whiteKeyWidth) - (blackKeyWidth / 2.0)
                         let isActive = clientService.isNoteActive(key.id)
-                        
+
                         VStack {
                             Spacer()
                             Text(key.noteName)
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(isActive ? .white : .black.opacity(0.7))
-                                .padding(.bottom, 6)
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.bottom, 3)
                         }
-                        .frame(width: whiteKeyWidth - 2, height: height)
+                        .frame(width: blackKeyWidth, height: blackKeyHeight)
                         .background(
                             LinearGradient(
-                                colors: isActive ? [.cyan, .blue] : [.white, Color(white: 0.9)],
+                                colors: isActive ? [.purple, .indigo] : [Color(white: 0.22), .black],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                        .cornerRadius(6, corners: [.bottomLeft, .bottomRight])
-                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 2)
+                        .cornerRadius(4, corners: [.bottomLeft, .bottomRight])
+                        .shadow(color: .black.opacity(0.4), radius: 2, x: 1, y: 2)
+                        .offset(x: xOffset, y: 0)
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { _ in
@@ -85,45 +125,10 @@ struct PianoView: View {
                         )
                     }
                 }
-
-                // Tasti Neri sopra i tasti bianchi
-                ForEach(keys.filter { $0.isBlack }) { key in
-                    let xOffset = (CGFloat(key.whiteIndex) + 0.7) * whiteKeyWidth
-                    let isActive = clientService.isNoteActive(key.id)
-
-                    VStack {
-                        Spacer()
-                        Text(key.noteName)
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.bottom, 4)
-                    }
-                    .frame(width: blackKeyWidth, height: blackKeyHeight)
-                    .background(
-                        LinearGradient(
-                            colors: isActive ? [.purple, .indigo] : [Color(white: 0.25), .black],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .cornerRadius(4, corners: [.bottomLeft, .bottomRight])
-                    .shadow(color: .black.opacity(0.5), radius: 3, x: 1, y: 3)
-                    .offset(x: xOffset, y: 0)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in
-                                if !clientService.isNoteActive(key.id) {
-                                    clientService.sendNoteOn(midi: key.id)
-                                }
-                            }
-                            .onEnded { _ in
-                                clientService.sendNoteOff(midi: key.id)
-                            }
-                    )
-                }
+                .frame(width: totalKeyboardWidth, height: height)
             }
         }
-        .frame(height: 140)
+        .frame(height: 145)
         .padding(8)
         .background(Color.black.opacity(0.4))
         .cornerRadius(12)

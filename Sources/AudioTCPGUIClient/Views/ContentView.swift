@@ -4,6 +4,7 @@ struct ContentView: View {
     @StateObject private var clientService = TCPClientService()
     @State private var customCommand: String = ""
     @State private var selectedPreset: TCPClientService.Preset = TCPClientService.Preset.defaultPresets[0]
+    @AppStorage("showConsole") private var showConsole: Bool = true
 
     var body: some View {
         VStack(spacing: 12) {
@@ -13,116 +14,134 @@ struct ContentView: View {
             Divider().background(Color.white.opacity(0.15))
 
             // Main Content Area
-            HSplitView {
-                // Left Column: Controls, Sliders & Piano
-                VStack(spacing: 16) {
-                    // Transport & Presets Bar
-                    transportAndPresetsView
+            if showConsole {
+                HSplitView {
+                    mainSynthControlsView
+                        .padding(.trailing, 8)
+                        .frame(minWidth: 480)
 
-                    // Synth Parameters Sliders
-                    synthParametersView
-
-                    // Waveform Oscilloscope
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Image(systemName: "waveform.path.ecg")
-                                .foregroundColor(.cyan)
-                            Text("Oscilloscopio Uscita Synth")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text("Latenza Render: \(clientService.tmaxInfo)")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                        }
-                        WaveformView(samples: clientService.outputSamples)
-                            .frame(height: 90)
-                    }
-
-                    // Interactive Piano Keyboard
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Image(systemName: "pianokeys")
-                                .foregroundColor(.indigo)
-                            Text("Tastiera Pianoforte (C3 - C5)")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.secondary)
-                        }
-                        PianoView(clientService: clientService)
-                    }
+                    consoleLogView
+                        .padding(.leading, 8)
+                        .frame(minWidth: 260, idealWidth: 320)
                 }
-                .padding(.trailing, 8)
-                .frame(minWidth: 480)
-
-                // Right Column: Console Log & Diagnostic Drawer
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "terminal")
-                            .foregroundColor(.green)
-                        Text("Console TCP & Diagnostica")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button(action: { clientService.refreshStatus() }) {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .buttonStyle(.plain)
-                        .help("Aggiorna diagnostica")
-                    }
-
-                    // Log Box
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(clientService.logEntries) { entry in
-                                    HStack(alignment: .top, spacing: 6) {
-                                        Text(entry.timestamp, style: .time)
-                                            .font(.system(size: 9, design: .monospaced))
-                                            .foregroundColor(.gray)
-                                        Text(entry.isOutgoing ? "➔" : "⬅")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundColor(entry.isOutgoing ? .blue : .green)
-                                        Text(entry.message)
-                                            .font(.system(size: 11, design: .monospaced))
-                                            .foregroundColor(entry.isError ? .red : (entry.isOutgoing ? .cyan : .white))
-                                    }
-                                    .id(entry.id)
-                                }
-                            }
-                            .padding(8)
-                        }
-                        .background(Color.black.opacity(0.8))
-                        .cornerRadius(6)
-                        .onChange(of: clientService.logEntries.count) { _ in
-                            if let last = clientService.logEntries.last {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
-                    }
-
-                    // Raw TCP Command Sender
-                    HStack {
-                        TextField("Comando TCP personalizzato (es: get 1, timing)...", text: $customCommand)
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit {
-                                sendCustomCommand()
-                            }
-                        Button("Invia") {
-                            sendCustomCommand()
-                        }
-                        .disabled(!clientService.isConnected || customCommand.isEmpty)
-                    }
-                }
-                .padding(.leading, 8)
-                .frame(minWidth: 260, idealWidth: 300)
+            } else {
+                mainSynthControlsView
+                    .frame(maxWidth: .infinity)
             }
         }
         .padding(16)
-        .frame(minWidth: 840, minHeight: 620)
+        .frame(
+            minWidth: showConsole ? 800 : 560,
+            idealWidth: showConsole ? 920 : 640,
+            maxWidth: .infinity,
+            minHeight: 600,
+            idealHeight: 720,
+            maxHeight: .infinity
+        )
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var mainSynthControlsView: some View {
+        VStack(spacing: 16) {
+            // Transport & Presets Bar
+            transportAndPresetsView
+
+            // Synth Parameters Sliders
+            synthParametersView
+
+            // Waveform Oscilloscope
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Image(systemName: "waveform.path.ecg")
+                        .foregroundColor(.cyan)
+                    Text("Oscilloscopio Uscita Synth")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("Latenza Render: \(clientService.tmaxInfo)")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                WaveformView(samples: clientService.outputSamples)
+                    .frame(minHeight: 100, maxHeight: .infinity)
+            }
+
+            // Interactive Piano Keyboard
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Image(systemName: "pianokeys")
+                        .foregroundColor(.indigo)
+                    Text("Tastiera Pianoforte (C2 - C6)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.secondary)
+                }
+                PianoView(clientService: clientService)
+            }
+        }
+    }
+
+    private var consoleLogView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "terminal")
+                    .foregroundColor(.green)
+                Text("Console TCP & Diagnostica")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button(action: { clientService.refreshStatus() }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .help("Aggiorna diagnostica")
+            }
+
+            // Log Box
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(clientService.logEntries) { entry in
+                            HStack(alignment: .top, spacing: 6) {
+                                Text(entry.timestamp, style: .time)
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                Text(entry.isOutgoing ? "➔" : "⬅")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(entry.isOutgoing ? .blue : .green)
+                                Text(entry.message)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(entry.isError ? .red : (entry.isOutgoing ? .cyan : .white))
+                            }
+                            .id(entry.id)
+                        }
+                    }
+                    .padding(8)
+                }
+                .background(Color.black.opacity(0.8))
+                .cornerRadius(6)
+                .onChange(of: clientService.logEntries.count) { _ in
+                    if let last = clientService.logEntries.last {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+            }
+
+            // Raw TCP Command Sender
+            HStack {
+                TextField("Comando TCP (es: get 1, timing)...", text: $customCommand)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        sendCustomCommand()
+                    }
+                Button("Invia") {
+                    sendCustomCommand()
+                }
+                .disabled(!clientService.isConnected || customCommand.isEmpty)
+            }
+        }
     }
 
     private func sendCustomCommand() {
@@ -199,6 +218,18 @@ struct ContentView: View {
             .padding(.vertical, 4)
             .background(Color.black.opacity(0.1))
             .cornerRadius(12)
+
+            // Console TCP Toggle Button
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showConsole.toggle()
+                }
+            }) {
+                Label("Console TCP", systemImage: showConsole ? "terminal.fill" : "terminal")
+            }
+            .buttonStyle(.bordered)
+            .tint(showConsole ? .green : .gray)
+            .help("Mostra o nascondi la console TCP & log")
         }
     }
 
