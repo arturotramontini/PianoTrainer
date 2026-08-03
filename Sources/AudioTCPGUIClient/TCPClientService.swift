@@ -28,7 +28,7 @@ final class TCPClientService: ObservableObject {
     private var connection: NWConnection?
     private let networkQueue = DispatchQueue(label: "AudioTCPGUIClient.network")
     private var pendingData = Data()
-    private var activeNotes = Set<UInt8>()
+    @Published var activeNotes = Set<UInt8>()
 
     init() {
     }
