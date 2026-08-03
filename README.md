@@ -1,53 +1,55 @@
-# AudioTCPExperiment
+# 🎹 SoundFont Piano Trainer Assistant & SF2 Synthesizer for macOS
 
-Piccolo programma console per macOS: avvia un sintetizzatore `AudioSynth` e lo
-controlla via TCP, senza GLFW né SwiftUI.
+![macOS 13+](https://img.shields.io/badge/macOS-13.0%2B-blue?style=for-the-badge&logo=apple)
+![Swift 5.10](https://img.shields.io/badge/Swift-5.10-orange?style=for-the-badge&logo=swift)
+![License GPLv3](https://img.shields.io/badge/License-GPLv3-green?style=for-the-badge)
 
-## Avvio
+Un'applicazione macOS nativa in Swift e SwiftUI progettata per la sintesi audio SoundFont (`.sf2`) e l'allenamento vocale al pianoforte ad occhi chiusi.
 
+---
+
+## 🌟 Caratteristiche Principali
+
+- 🎓 **Piano Trainer Assistant**:
+  - **Proposta Nota Casuale (> 2s)**: Tenendo premuto un tasto per più di 2 secondi, la voce nativa del Mac (`AVSpeechSynthesizer`) propone a voce una nuova nota da cercare su tutta la tastiera a 88 tasti (`A0...C8`).
+  - **Lettura Vocale ad Occhi Chiusi**: Opzione per attivare la lettura vocale istantanea di ogni nota premuta per esercitarsi senza guardare lo schermo.
+  - **Analisi Tocco & Dinamica (Velocity)**: Misurazione in tempo reale della dinamica di tocco (`p` piano, `mf` mezzo forte, `f` forte).
+  - **Analisi Articolazione (Duration)**: Calcolo della durata di pressione (`Staccato`, `Tenuto`, `Sostenuto`).
+  - **Notazione Inglese ed Italiana**: Selezione dinamica tra `C4, F#3` e `Do4, Fa#3`.
+
+- 🎹 **Campionatore SoundFont SF2 Nativo**:
+  - Utilizza l'engine nativo Apple `AVAudioEngine` & `AVAudioUnitSampler` caricando il banco General MIDI `A320U.sf2`.
+  - Supporta le **tastiere MIDI hardware fisiche USB/Bluetooth** (Akai, Arturia, Novation, Yamaha, Roland, Korg...) con cambio strumento General MIDI sincrono a latenza zero.
+  - Tastiera grafica dinamica reattiva a 88 tasti con illuminazione in tempo reale.
+
+- 🖥️ **Finestra Standalone Unificata (`PianoTrainer.app`)**:
+  - App macOS impacchettata con la sua icona personalizzata: doppio click ed il motore audio ed il server si avviano automaticamente.
+
+---
+
+## 🚀 Installazione ed Avvio
+
+### Requisiti
+- macOS 13.0 Ventura o superiore
+- Xcode 15+ o Swift 5.10 toolchain
+
+### Avvio dell'App Nativamene
+Puoi aprire direttamente l'app impacchettata:
 ```bash
-cd AudioTCPExperiment
-swift run
+open PianoTrainer.app
 ```
 
-In un secondo Terminale:
-
+### Compilazione da Sorgente via Swift Package Manager
 ```bash
-nc 127.0.0.1 9876
+git clone https://github.com/tuousero/PianoTrainer.git
+cd PianoTrainer
+
+# Compilazione ed avvio della GUI Piano Trainer
+swift run AudioTCPGUIClient
 ```
 
-Poi scrivi, una riga per comando:
+---
 
-```text
-help
-start
-note_on 60 100
-note_off 60
-stop
-```
+## 📄 Licenza
 
-È possibile aprire due o tre Terminali con `nc`: sono tutti client del
-medesimo sintetizzatore.
-
-## Comandi
-
-| Comando | Effetto |
-|---|---|
-| `start` / `stop` | Avvia / ferma audio e microfono. |
-| `note_on 60 100` | Nota MIDI 60, velocity 100. |
-| `note_off 60` | Spegne la nota MIDI 60. |
-| `note_off 60 20` | Spegne con rilascio personalizzato. |
-| `set 1 1.5` | Scrive un parametro di `AudioSynth`. |
-| `get 1` | Legge un parametro. |
-| `frames`, `timing`, `tmax` | Dati diagnostici. |
-| `input 32`, `output 32` | Ultimi campioni del microfono o del synth (massimo 256). |
-| `status` | Stato audio e numero client. |
-
-I parametri principali attuali sono: `1` sustain/release, `2` frequenza di
-modulazione, `3` profondità di modulazione, `4` volume finale.
-
-## Nota sul microfono
-
-Al primo `start`, macOS può chiedere il permesso di usare il microfono. Se non
-serve per il primo test, si può comunque usare l'uscita sintetizzata: l'input
-è solo una funzione aggiuntiva del modulo.
+Rilasciato sotto licenza **GNU General Public License v3.0 (GPL-3.0)**. Consultare il file [LICENSE](LICENSE) per i dettagli.
