@@ -21,6 +21,8 @@ final class TCPClientService: ObservableObject {
 
     // Diagnostics & Buffers
     @Published var outputSamples: [Float] = Array(repeating: 0.0, count: 128)
+    @Published var rollingBuffer: [Float] = Array(repeating: 0.0, count: 1000)
+    @Published var timebaseSeconds: Double = 1.0 // 0.05, 0.2, 0.5, 1.0
     @Published var inputSamples: [Float] = Array(repeating: 0.0, count: 128)
     @Published var timingInfo: String = "N/A"
     @Published var tmaxInfo: String = "0.0 ms"
@@ -136,6 +138,13 @@ final class TCPClientService: ObservableObject {
             let vals = sampleStr.split(separator: ",").compactMap { Float($0) }
             if !vals.isEmpty {
                 self.outputSamples = vals
+                
+                // Mantiene un buffer continuo per lo scorrimento da destra a sinistra (fino a 2000 campioni)
+                self.rollingBuffer.append(contentsOf: vals)
+                let maxPoints = 2000
+                if self.rollingBuffer.count > maxPoints {
+                    self.rollingBuffer.removeFirst(self.rollingBuffer.count - maxPoints)
+                }
             }
         } else if line.hasPrefix("OK timing") {
             self.timingInfo = line.replacingOccurrences(of: "OK ", with: "")
@@ -206,10 +215,11 @@ final class TCPClientService: ObservableObject {
 
     private func startPolling() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        // Richiede campioni ogni 50ms per un'animazione di scorrimento a 20 FPS fluida
+        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self, self.isConnected else { return }
-                self.sendRawCommand("output 128")
+                self.sendRawCommand("output 256")
             }
         }
     }

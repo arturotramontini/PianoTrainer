@@ -58,7 +58,7 @@ struct ContentView: View {
             // Synth Parameters Sliders
             synthParametersView
 
-            // Waveform Oscilloscope
+            // Waveform Oscilloscope (Rolling 1-Second View)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Image(systemName: "waveform.path.ecg")
@@ -67,13 +67,33 @@ struct ContentView: View {
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
+                    
                     Spacer()
-                    Text("Latenza Render: \(clientService.tmaxInfo)")
+
+                    // Selettore Timebase per lo scorrimento continuo
+                    HStack(spacing: 4) {
+                        Text("Timebase:")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+
+                        ForEach([0.05, 0.2, 0.5, 1.0], id: \.self) { seconds in
+                            Button(action: { clientService.timebaseSeconds = seconds }) {
+                                Text(seconds == 1.0 ? "1.0 s" : "\(Int(seconds * 1000)) ms")
+                                    .font(.system(size: 9, weight: .bold))
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(clientService.timebaseSeconds == seconds ? .cyan : .gray)
+                        }
+                    }
+
+                    Spacer()
+
+                    Text("Latenza: \(clientService.tmaxInfo)")
                         .font(.caption2)
                         .foregroundColor(.gray)
                 }
-                WaveformView(samples: clientService.outputSamples)
-                    .frame(minHeight: 100, maxHeight: .infinity)
+                WaveformView(samples: clientService.rollingBuffer, timebaseSeconds: clientService.timebaseSeconds)
+                    .frame(minHeight: 110, maxHeight: .infinity)
             }
 
             // Interactive Piano Keyboard
