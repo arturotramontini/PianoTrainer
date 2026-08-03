@@ -22,7 +22,8 @@ final class TCPClientService: ObservableObject {
     // Diagnostics & Buffers
     @Published var outputSamples: [Float] = Array(repeating: 0.0, count: 128)
     @Published var rollingBuffer: [Float] = Array(repeating: 0.0, count: 1000)
-    @Published var timebaseSeconds: Double = 1.0 // 0.05, 0.2, 0.5, 1.0
+    @Published var timebaseSeconds: Double = 1.0 // 0.05, 0.2, 0.5, 1.0, 2.0, 5.0
+    @Published var verticalGain: Double = 1.0   // 0.5x, 1x, 2x, 4x, 8x
     @Published var inputSamples: [Float] = Array(repeating: 0.0, count: 128)
     @Published var timingInfo: String = "N/A"
     @Published var tmaxInfo: String = "0.0 ms"

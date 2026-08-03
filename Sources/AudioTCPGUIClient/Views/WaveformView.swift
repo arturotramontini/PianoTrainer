@@ -3,6 +3,7 @@ import SwiftUI
 struct WaveformView: View {
     let samples: [Float]
     var timebaseSeconds: Double = 1.0
+    var verticalGain: Double = 1.0
     var lineColor: Color = .cyan
 
     var body: some View {
@@ -50,9 +51,11 @@ struct WaveformView: View {
 
             // 3. Disegna forma d'onda a scorrimento (da sinistra verso destra)
             var wavePath = Path()
+            let gainMultiplier = Float(verticalGain)
             for (index, sample) in displaySamples.enumerated() {
                 let x = CGFloat(index) * stepX
-                let clampedSample = CGFloat(max(-1.0, min(1.0, sample * 0.1)))
+                let scaledSample = sample * 0.1 * gainMultiplier
+                let clampedSample = CGFloat(max(-1.0, min(1.0, scaledSample)))
                 let y = midY - (clampedSample * (height / 2.2))
 
                 if index == 0 {

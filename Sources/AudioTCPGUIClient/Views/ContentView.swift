@@ -88,12 +88,34 @@ struct ContentView: View {
 
                     Spacer()
 
+                    // Selettore Scala Verticale (Gain / Volts-per-div)
+                    HStack(spacing: 4) {
+                        Text("Gain V:")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+
+                        ForEach([0.5, 1.0, 2.0, 4.0, 8.0], id: \.self) { gain in
+                            Button(action: { clientService.verticalGain = gain }) {
+                                Text(gain < 1.0 ? "0.5x" : "\(Int(gain))x")
+                                    .font(.system(size: 9, weight: .bold))
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(clientService.verticalGain == gain ? .blue : .gray)
+                        }
+                    }
+
+                    Spacer()
+
                     Text("Latenza: \(clientService.tmaxInfo)")
                         .font(.caption2)
                         .foregroundColor(.gray)
                 }
-                WaveformView(samples: clientService.rollingBuffer, timebaseSeconds: clientService.timebaseSeconds)
-                    .frame(minHeight: 110, maxHeight: .infinity)
+                WaveformView(
+                    samples: clientService.rollingBuffer,
+                    timebaseSeconds: clientService.timebaseSeconds,
+                    verticalGain: clientService.verticalGain
+                )
+                .frame(minHeight: 110, maxHeight: .infinity)
             }
 
             // Interactive Piano Keyboard
