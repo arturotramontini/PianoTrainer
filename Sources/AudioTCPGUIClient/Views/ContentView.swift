@@ -6,8 +6,6 @@ struct ContentView: View {
     @State private var customCommand: String = ""
     @AppStorage("showConsole") private var showConsole: Bool = true
 
-    @State private var keyboardMonitor = KeyboardMonitor()
-
     var body: some View {
         VStack(spacing: 16) {
             // Header & Connection Bar
@@ -34,11 +32,9 @@ struct ContentView: View {
         )
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
-            keyboardMonitor.startMonitoring(clientService: clientService)
             guiMidiManager.startMonitoring(clientService: clientService)
         }
         .onDisappear {
-            keyboardMonitor.stopMonitoring()
             guiMidiManager.stop()
         }
     }

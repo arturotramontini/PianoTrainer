@@ -2,7 +2,8 @@ import Foundation
 import CoreMIDI
 import Combine
 
-/// Monitor per il rilevamento delle tastiere MIDI hardware fisiche e illuminazione tasti nella GUI.
+/// Gestore nativo CoreMIDI per tastiere MIDI fisiche USB/Bluetooth client-side.
+/// Invia le note via TCP al server affinché usino lo strumento SF2 selezionato e illumina i tasti a schermo.
 @MainActor
 final class GUIMIDIManager: ObservableObject {
     @Published var connectedDevices: [String] = []
@@ -106,9 +107,12 @@ final class GUIMIDIManager: ObservableObject {
                 if i + 2 < length {
                     let note = bytes[i + 1]
                     let velocity = bytes[i + 2]
-                    let isNoteOn = velocity > 0
                     Task { @MainActor in
-                        self.clientService?.setNoteActive(midi: note, active: isNoteOn)
+                        if velocity > 0 {
+                            self.clientService?.sendNoteOn(midi: note, velocity: Double(velocity))
+                        } else {
+                            self.clientService?.sendNoteOff(midi: note)
+                        }
                     }
                     i += 3
                 } else { break }
@@ -116,9 +120,17 @@ final class GUIMIDIManager: ObservableObject {
                 if i + 1 < length {
                     let note = bytes[i + 1]
                     Task { @MainActor in
-                        self.clientService?.setNoteActive(midi: note, active: false)
+                        self.clientService?.sendNoteOff(midi: note)
                     }
                     i += (i + 2 < length ? 3 : 2)
+                } else { break }
+            } else if messageType == 0xC0 { // Program Change da tastiera fisica
+                if i + 1 < length {
+                    let prog = bytes[i + 1]
+                    Task { @MainActor in
+                        self.clientService?.setSF2Program(prog)
+                    }
+                    i += 2
                 } else { break }
             } else {
                 i += 1
