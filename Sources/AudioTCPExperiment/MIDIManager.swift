@@ -66,11 +66,9 @@ public final class MIDIManager: @unchecked Sendable {
 
         for i in 0..<sourceCount {
             let source = MIDIGetSource(i)
-            let status = MIDIPortConnectSource(inputPort, source, nil)
-            
             var nameRef: Unmanaged<CFString>?
             let nameStatus = MIDIObjectGetStringProperty(source, kMIDIPropertyDisplayName, &nameRef)
-            
+
             let name: String
             if nameStatus == noErr, let cfName = nameRef?.takeRetainedValue() {
                 name = cfName as String
@@ -83,6 +81,7 @@ public final class MIDIManager: @unchecked Sendable {
                 continue
             }
 
+            let status = MIDIPortConnectSource(inputPort, source, nil)
             if status == noErr {
                 deviceNames.append(name)
             }

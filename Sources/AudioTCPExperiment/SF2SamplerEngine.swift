@@ -72,24 +72,9 @@ public final class SF2SamplerEngine: @unchecked Sendable {
                 at: url,
                 program: program,
                 bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB),
-                bankLSB: 0
+                bankLSB: UInt8(kAUSampler_DefaultBankLSB)
             )
-            // Applica il cambio programma sia per Bank 121 che per Bank 0 su tutti i 16 canali MIDI (0..15)
-            for ch in UInt8(0)...15 {
-                sampler.sendProgramChange(
-                    program,
-                    bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB),
-                    bankLSB: 0,
-                    onChannel: ch
-                )
-                sampler.sendProgramChange(
-                    program,
-                    bankMSB: 0,
-                    bankLSB: 0,
-                    onChannel: ch
-                )
-            }
-            print("[\u{001B}[32m✓\u{001B}[0m] Strumento SoundFont SF2 attivato a Program \(program) (Bank 0 & 121) su tutti i canali MIDI.")
+            print("[\u{001B}[32m✓\u{001B}[0m] Strumento SoundFont SF2 impostato a Program \(program).")
         } catch {
             print("[\u{001B}[31m✗\u{001B}[0m] Errore caricamento strumento SF2 Program \(program): \(error)")
         }
