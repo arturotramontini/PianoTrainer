@@ -13,6 +13,10 @@ final class TCPClientService: ObservableObject {
     @Published var audioRunning: Bool = false
     @Published var clientCount: Int = 0
 
+    // Modalità Suono (0 = Motore C, 1 = SF2 Sampler, 2 = Entrambi)
+    @Published var soundMode: Int = 0
+    @Published var sf2Program: UInt8 = 0
+
     // Parametri synth (indici 1..5)
     @Published var paramSustainRelease: Double = 1.5   // Param 1
     @Published var paramModFreq: Double = 7.83         // Param 2
@@ -200,6 +204,16 @@ final class TCPClientService: ObservableObject {
         }
     }
 
+    func setSoundMode(_ mode: Int) {
+        soundMode = mode
+        sendRawCommand("mode \(mode)")
+    }
+
+    func setSF2Program(_ program: UInt8) {
+        sf2Program = program
+        sendRawCommand("program \(program)")
+    }
+
     func setParam(_ index: Int, value: Double) {
         sendRawCommand("set \(index) \(String(format: "%.4f", value))")
     }
@@ -260,6 +274,28 @@ final class TCPClientService: ObservableObject {
             Preset(name: "Fast Pluck (Short)", sustain: 5.0, modFreq: 12.0, modDepth: 0.01, volume: 25.0),
             Preset(name: "Vibrato Warm", sustain: 1.2, modFreq: 6.0, modDepth: 0.08, volume: 18.0),
             Preset(name: "Tremolo Extreme", sustain: 1.0, modFreq: 18.0, modDepth: 0.15, volume: 16.0)
+        ]
+    }
+
+    struct SF2Instrument: Identifiable, Hashable {
+        let id: UInt8
+        let name: String
+
+        static let popularInstruments: [SF2Instrument] = [
+            SF2Instrument(id: 0, name: "Piano (Grand Piano)"),
+            SF2Instrument(id: 4, name: "Piano Elettrico (Rhodes)"),
+            SF2Instrument(id: 16, name: "Organo Hammond (Drawbar)"),
+            SF2Instrument(id: 19, name: "Organo di Chiesa"),
+            SF2Instrument(id: 24, name: "Chitarra Acustica"),
+            SF2Instrument(id: 30, name: "Chitarra Elettrica Distortion"),
+            SF2Instrument(id: 33, name: "Basso Elettrico"),
+            SF2Instrument(id: 40, name: "Violino Solo"),
+            SF2Instrument(id: 48, name: "Archi (String Ensemble)"),
+            SF2Instrument(id: 56, name: "Tromba (Trumpet)"),
+            SF2Instrument(id: 65, name: "Sassofono (Alto Sax)"),
+            SF2Instrument(id: 73, name: "Flauto Traverso"),
+            SF2Instrument(id: 80, name: "Synth Lead (Square)"),
+            SF2Instrument(id: 88, name: "Synth Pad (New Age)")
         ]
     }
 }

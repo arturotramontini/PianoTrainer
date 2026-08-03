@@ -1,9 +1,13 @@
 import Foundation
 import CAudioEngine
 
-/// Wrapper Swift attorno al motore audio C nativo (audio.c / audio.h).
-public final class AudioSynth {
+/// Wrapper Swift attorno al motore audio C nativo ed al campionatore SoundFont SF2.
+public final class AudioSynth: @unchecked Sendable {
     private var audioRunning: Bool = false
+    public let sf2Engine: SF2SamplerEngine
+
+    /// Modalità Suono: 0 = Motore C, 1 = Sampler SF2, 2 = Entrambi (Layer)
+    public private(set) var soundMode: Int = 0
 
     public struct AudioTiming: Sendable {
         public var tPrev: Double = 0
@@ -15,8 +19,28 @@ public final class AudioSynth {
         public var delta: Double = 0
     }
 
-    public init() {
+    public init(sf2Path: String = "A320U.sf2") {
+        self.sf2Engine = SF2SamplerEngine(sf2Path: sf2Path)
         CAudioEngine.setDefault()
+    }
+
+    public func setSoundMode(_ mode: Int) {
+        let clamped = max(0, min(2, mode))
+        self.soundMode = clamped
+        print("[\u{001B}[36mi\u{001B}[0m] Modalità Suono impostata a: \(soundModeName(clamped))")
+    }
+
+    public func soundModeName(_ mode: Int) -> String {
+        switch mode {
+        case 0: return "Motore C Custom"
+        case 1: return "Sampler SoundFont SF2"
+        case 2: return "Entrambi / Layer"
+        default: return "Sconosciuto"
+        }
+    }
+
+    public func setSF2Program(_ program: UInt8) {
+        sf2Engine.loadInstrument(program: program)
     }
 
     public func setDefault() {
@@ -32,19 +56,31 @@ public final class AudioSynth {
     }
 
     public func enqueueNoteOn(frequency: Double, note: UInt8, velocity: Double) {
-        CAudioEngine.enqueueNoteOn(frequency, note, velocity)
+        if soundMode == 0 || soundMode == 2 {
+            CAudioEngine.enqueueNoteOn(frequency, note, velocity)
+        }
+        if soundMode == 1 || soundMode == 2 {
+            sf2Engine.noteOn(note: note, velocity: UInt8(max(0, min(127, velocity))))
+        }
     }
 
     public func enqueueNoteOff(note: UInt8, sustainOff: UInt32 = 0) {
-        CAudioEngine.enqueueNoteOff(note, sustainOff)
+        if soundMode == 0 || soundMode == 2 {
+            CAudioEngine.enqueueNoteOff(note, sustainOff)
+        }
+        if soundMode == 1 || soundMode == 2 {
+            sf2Engine.noteOff(note: note)
+        }
     }
 
     public func startAudio() throws {
         CAudioEngine.startAudio()
+        sf2Engine.start()
         audioRunning = true
     }
 
     public func stopAudio() {
+        sf2Engine.stop()
         audioRunning = false
     }
 

@@ -307,7 +307,7 @@ struct ContentView: View {
     }
 
     private var transportAndPresetsView: some View {
-        HStack {
+        HStack(spacing: 12) {
             // Audio Engine Start/Stop
             Button(action: { clientService.toggleAudio() }) {
                 HStack {
@@ -322,21 +322,62 @@ struct ContentView: View {
 
             Spacer()
 
-            // Presets Dropdown
-            Text("Presets:")
-                .font(.caption)
-                .fontWeight(.medium)
+            // Selettore Modalità Suono (Motore C vs SF2 vs Entrambi)
+            HStack(spacing: 4) {
+                Text("Motore:")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                
+                Picker("Motore Suono", selection: Binding(
+                    get: { clientService.soundMode },
+                    set: { clientService.setSoundMode($0) }
+                )) {
+                    Text("Motore C Custom").tag(0)
+                    Text("SoundFont SF2").tag(1)
+                    Text("Entrambi / Layer").tag(2)
+                }
+                .pickerStyle(.menu)
+                .frame(width: 150)
+                .disabled(!clientService.isConnected)
+            }
 
-            Picker("Preset", selection: $selectedPreset) {
-                ForEach(TCPClientService.Preset.defaultPresets) { preset in
-                    Text(preset.name).tag(preset)
+            // Selettore Strumento SoundFont SF2
+            if clientService.soundMode != 0 {
+                HStack(spacing: 4) {
+                    Text("Strumento:")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    
+                    Picker("Strumento SF2", selection: Binding(
+                        get: { clientService.sf2Program },
+                        set: { clientService.setSF2Program($0) }
+                    )) {
+                        ForEach(TCPClientService.SF2Instrument.popularInstruments) { inst in
+                            Text(inst.name).tag(inst.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 180)
+                    .disabled(!clientService.isConnected)
                 }
             }
-            .pickerStyle(.menu)
-            .frame(width: 200)
-            .disabled(!clientService.isConnected)
-            .onChange(of: selectedPreset) { newPreset in
-                clientService.applyPreset(newPreset)
+
+            // Presets Synth C Dropdown
+            HStack(spacing: 4) {
+                Text("Preset C:")
+                    .font(.caption)
+                    .fontWeight(.medium)
+
+                Picker("Preset", selection: $selectedPreset) {
+                    ForEach(TCPClientService.Preset.defaultPresets) { preset in
+                        Text(preset.name).tag(preset)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(width: 130)
+                .onChange(of: selectedPreset) { newPreset in
+                    clientService.applyPreset(newPreset)
+                }
             }
         }
         .padding(8)

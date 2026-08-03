@@ -94,10 +94,23 @@ final class AudioTCPServer {
         let words = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
         guard let first = words.first else { return "ERR empty command" }
         let command = first.lowercased()
-
         switch command {
         case "help":
-            return "OK commands: start stop note_on <midi> <velocity> note_off <midi> [release] set <index> <value> get <index> frames host_time sample_time timing tmax input <count> output <count> status quit"
+            return "OK commands: start stop note_on <midi> <velocity> note_off <midi> mode <0|1|2> program <0-127> set <index> <value> get <index> frames host_time sample_time timing tmax input <count> output <count> status quit"
+
+        case "mode":
+            guard words.count == 2, let modeVal = Int(words[1]) else {
+                return "ERR usage: mode <0=C Engine, 1=SF2 Sampler, 2=Both>"
+            }
+            audio.setSoundMode(modeVal)
+            return "OK mode=\(modeVal) (\(audio.soundModeName(modeVal)))"
+
+        case "program":
+            guard words.count == 2, let progVal = UInt8(words[1]), progVal <= 127 else {
+                return "ERR usage: program <0-127>"
+            }
+            audio.setSF2Program(progVal)
+            return "OK program=\(progVal)"
 
         case "start":
             do {
