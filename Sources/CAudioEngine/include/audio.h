@@ -16,6 +16,7 @@ double   getSampleTime(void);
 // 👇 NUOVO
 void getInputBuffer(float *out, int size);
 void getOutputBuffer(float *out, int size); 
+int getOutputBufferStream(float *out, int size); 
 
 void setValue(double value);
 double getValue();

@@ -76,9 +76,9 @@ struct ContentView: View {
                             .font(.caption2)
                             .foregroundColor(.gray)
 
-                        ForEach([0.05, 0.2, 0.5, 1.0], id: \.self) { seconds in
+                        ForEach([0.05, 0.2, 0.5, 1.0, 2.0, 5.0], id: \.self) { seconds in
                             Button(action: { clientService.timebaseSeconds = seconds }) {
-                                Text(seconds == 1.0 ? "1.0 s" : "\(Int(seconds * 1000)) ms")
+                                Text(seconds >= 1.0 ? String(format: "%.1f s", seconds) : "\(Int(seconds * 1000)) ms")
                                     .font(.system(size: 9, weight: .bold))
                             }
                             .buttonStyle(.bordered)

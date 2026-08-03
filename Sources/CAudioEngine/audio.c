@@ -251,13 +251,35 @@ void getInputBuffer(float *out, int size) {
     }
 }
 
-// 👇 COPIA BUFFER PER GO
-void getOutputBuffer(float *out, int size) {
-    int idx = writeOutIdxBuf;
+// 👇 COPIA BUFFER PER GO / SWIFT (STREAM CONTINUO SENZA SALTI)
+static int readOutIdxBuf = 0;
 
-    for (int i = 0; i < size; i++) {
-        idx = (idx - 1 + OUTPUT_BUF) % OUTPUT_BUF;
-        out[size - 1 - i] = outputBuf[idx];
+int getOutputBufferStream(float *out, int maxSize) {
+    if (maxSize <= 0) return 0;
+
+    int available = (writeOutIdxBuf - readOutIdxBuf + OUTPUT_BUF) % OUTPUT_BUF;
+    
+    // Se è la prima lettura o siamo rimasti troppo indietro (oltre mezzo buffer), riallinea
+    if (readOutIdxBuf == 0 || available > (OUTPUT_BUF - 1000)) {
+        readOutIdxBuf = (writeOutIdxBuf - (maxSize < 512 ? maxSize : 512) + OUTPUT_BUF) % OUTPUT_BUF;
+        available = (writeOutIdxBuf - readOutIdxBuf + OUTPUT_BUF) % OUTPUT_BUF;
+    }
+
+    int toRead = available < maxSize ? available : maxSize;
+    for (int i = 0; i < toRead; i++) {
+        out[i] = outputBuf[readOutIdxBuf];
+        readOutIdxBuf = (readOutIdxBuf + 1) % OUTPUT_BUF;
+    }
+    return toRead;
+}
+
+void getOutputBuffer(float *out, int size) {
+    int read = getOutputBufferStream(out, size);
+    if (read < size) {
+        float fillVal = read > 0 ? out[read - 1] : 0.0f;
+        for (int i = read; i < size; i++) {
+            out[i] = fillVal;
+        }
     }
 }
 

@@ -139,9 +139,9 @@ final class TCPClientService: ObservableObject {
             if !vals.isEmpty {
                 self.outputSamples = vals
                 
-                // Mantiene un buffer continuo per lo scorrimento da destra a sinistra (fino a 2000 campioni)
+                // Mantiene un buffer continuo per lo scorrimento da destra a sinistra (fino a 10.000 campioni = 5 secondi)
                 self.rollingBuffer.append(contentsOf: vals)
-                let maxPoints = 2000
+                let maxPoints = 10000
                 if self.rollingBuffer.count > maxPoints {
                     self.rollingBuffer.removeFirst(self.rollingBuffer.count - maxPoints)
                 }

@@ -34,10 +34,9 @@ struct WaveformView: View {
             
             context.stroke(gridPath, with: .color(Color.gray.opacity(0.18)), lineWidth: 1)
 
-            // 2. Determina quanti campioni visualizzare in base al timebase
-            // Ad esempio se abbiamo 2000 punti per 1.0s, calcoliamo il numero di campioni proporzionale
-            let maxPointsForOneSecond = 2000
-            let targetCount = Int(Double(maxPointsForOneSecond) * min(1.0, max(0.05, timebaseSeconds)))
+            // 2. Determina quanti campioni visualizzare in base al timebase (fino a 5.0s)
+            let maxPointsForFiveSeconds = 10000
+            let targetCount = Int(Double(maxPointsForFiveSeconds) * (min(5.0, max(0.05, timebaseSeconds)) / 5.0))
             
             let displaySamples: ArraySlice<Float>
             if samples.count > targetCount {
