@@ -12,15 +12,15 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    /// Pronuncia il nome di una nota appena premuta (es: "C4", "F sharp 3").
-    func speakNote(_ midi: UInt8, isItalian: Bool = false) {
-        let phoneticText = NoteNameUtility.speechPhoneticName(for: midi, languageIsItalian: isItalian)
+    /// Pronuncia il nome di una nota appena premuta (es: "C sharp 4", "Re bemolle 4").
+    func speakNote(_ midi: UInt8, preferFlat: Bool = false, isItalian: Bool = false) {
+        let phoneticText = NoteNameUtility.speechPhoneticName(for: midi, preferFlat: preferFlat, languageIsItalian: isItalian)
         speakText(phoneticText, languageCode: isItalian ? "it-IT" : "en-US", interruptPrevious: true)
     }
 
-    /// Propone a voce una nuova nota da suonare (es: "Prossima nota: E4" o "Next note: E4").
-    func speakProposedNote(_ midi: UInt8, isItalian: Bool = false) {
-        let phoneticText = NoteNameUtility.speechPhoneticName(for: midi, languageIsItalian: isItalian)
+    /// Propone a voce una nuova nota da suonare (es: "Prossima nota: Re bemolle 4" o "Next note: D flat 4").
+    func speakProposedNote(_ midi: UInt8, preferFlat: Bool = false, isItalian: Bool = false) {
+        let phoneticText = NoteNameUtility.speechPhoneticName(for: midi, preferFlat: preferFlat, languageIsItalian: isItalian)
         let promptText = isItalian ? "Prossima nota: \(phoneticText)" : "Next note: \(phoneticText)"
         speakText(promptText, languageCode: isItalian ? "it-IT" : "en-US", interruptPrevious: true)
     }

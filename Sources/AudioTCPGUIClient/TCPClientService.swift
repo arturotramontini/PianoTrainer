@@ -26,8 +26,12 @@ final class TCPClientService: ObservableObject {
     }
     @Published var targetNoteMIDI: UInt8? = nil
     @Published var targetNoteText: String = "Premere un tasto per > 2s per iniziare"
+    @Published var targetPreferFlat: Bool = false
+
     @Published var lastPlayedNoteMIDI: UInt8? = nil
     @Published var lastPlayedNoteText: String = "-"
+    @Published var lastPlayedIsTargetMatched: Bool = false
+    @Published var lastPlayedPreferFlat: Bool = false
 
     // Dinamica di Tocco (Velocity) & Articolazione (Duration)
     @Published var lastVelocity: Int = 0
@@ -181,9 +185,24 @@ final class TCPClientService: ObservableObject {
             activeNotes.insert(midi)
             pressStartTimes[midi] = Date()
 
-            // Aggiorna l'ultima nota suonata (visualizzata in modo permanente)
+            // Controlla se il tasto premuto corrisponde alla nota proposta dal Mac (MATCH 🟢)
+            let isMatched = (midi == targetNoteMIDI)
+            lastPlayedIsTargetMatched = isMatched
             lastPlayedNoteMIDI = midi
-            lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: midi) : NoteNameUtility.englishName(for: midi)
+
+            // Scelta dell'alterazione (Diesis vs Bemolle)
+            let preferFlat: Bool
+            if isMatched {
+                preferFlat = targetPreferFlat // Usa l'alterazione esatta richiesta
+            } else if NoteNameUtility.isBlackKey(midi: midi) {
+                preferFlat = Bool.random() // Se non corrisponde, alterna casualmente Diesis e Bemolle per i tasti neri
+            } else {
+                preferFlat = false
+            }
+            lastPlayedPreferFlat = preferFlat
+
+            // Aggiorna l'ultima nota suonata (visualizzata in modo permanente)
+            lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: midi, preferFlat: preferFlat) : NoteNameUtility.englishName(for: midi, preferFlat: preferFlat)
 
             // Dinamica di Tocco (Velocity)
             let vel = Int(velocity)
@@ -196,9 +215,9 @@ final class TCPClientService: ObservableObject {
                 lastVelocityText = "\(vel) / 127 (f - forte)"
             }
 
-            // Requisito #2: Se la checkbox è attiva, pronuncia la nota appena premuta
-            if speakPressedNotes {
-                speechService.speakNote(midi, isItalian: useItalianNotation)
+            // Pronuncia la nota (se la checkbox è attiva o se ha indovinato la nota proposta)
+            if speakPressedNotes || isMatched {
+                speechService.speakNote(midi, preferFlat: preferFlat, isItalian: useItalianNotation)
             }
         } else {
             activeNotes.remove(midi)
@@ -227,19 +246,21 @@ final class TCPClientService: ObservableObject {
     /// Aggiorna i testi visualizzati quando si passa da notazione inglese ad italiana o viceversa.
     func updateDisplayedNoteNames() {
         if let target = targetNoteMIDI {
-            targetNoteText = useItalianNotation ? NoteNameUtility.italianName(for: target) : NoteNameUtility.englishName(for: target)
+            targetNoteText = useItalianNotation ? NoteNameUtility.italianName(for: target, preferFlat: targetPreferFlat) : NoteNameUtility.englishName(for: target, preferFlat: targetPreferFlat)
         }
         if let last = lastPlayedNoteMIDI {
-            lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: last) : NoteNameUtility.englishName(for: last)
+            lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: last, preferFlat: lastPlayedPreferFlat) : NoteNameUtility.englishName(for: last, preferFlat: lastPlayedPreferFlat)
         }
     }
 
     /// Genera e pronuncia una nuova nota casuale tra gli 88 tasti del pianoforte (21 A0 ... 108 C8).
+    /// Se la nota è un tasto nero, sceglie casualmente se proporla come Diesis (♯) o Bemolle (♭).
     func generateNewTargetNote() {
         let newTarget = NoteNameUtility.randomPianoMIDI()
         self.targetNoteMIDI = newTarget
-        self.targetNoteText = useItalianNotation ? NoteNameUtility.italianName(for: newTarget) : NoteNameUtility.englishName(for: newTarget)
-        self.speechService.speakProposedNote(newTarget, isItalian: useItalianNotation)
+        self.targetPreferFlat = NoteNameUtility.isBlackKey(midi: newTarget) ? Bool.random() : false
+        self.targetNoteText = useItalianNotation ? NoteNameUtility.italianName(for: newTarget, preferFlat: targetPreferFlat) : NoteNameUtility.englishName(for: newTarget, preferFlat: targetPreferFlat)
+        self.speechService.speakProposedNote(newTarget, preferFlat: targetPreferFlat, isItalian: useItalianNotation)
         addLog("Piano Trainer: Nuova nota proposta -> \(targetNoteText)", isError: false)
     }
 

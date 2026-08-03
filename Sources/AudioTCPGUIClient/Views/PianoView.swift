@@ -57,10 +57,12 @@ struct PianoView: View {
                     HStack(spacing: 1) {
                         ForEach(keys.filter { !$0.isBlack }) { key in
                             let isActive = clientService.isNoteActive(key.id)
+                            let isMatched = isActive && (key.id == clientService.targetNoteMIDI)
+                            let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
                             
                             VStack {
                                 Spacer()
-                                Text(key.noteName)
+                                Text(label)
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(isActive ? .white : .black.opacity(0.75))
                                     .padding(.bottom, 6)
@@ -68,7 +70,7 @@ struct PianoView: View {
                             .frame(width: whiteKeyWidth - 1, height: height)
                             .background(
                                 LinearGradient(
-                                    colors: isActive ? [.cyan, .blue] : [.white, Color(white: 0.92)],
+                                    colors: isMatched ? [.green, Color.green.opacity(0.8)] : (isActive ? [.cyan, .blue] : [.white, Color(white: 0.92)]),
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
@@ -89,22 +91,26 @@ struct PianoView: View {
                         }
                     }
 
-                    // Tasti Neri posizionati accuratamente sulle giunzioni
+                    // Tasti Neri posizionati accuratamente sulle giunzioni con doppia dicitura Diesis / Bemolle
                     ForEach(keys.filter { $0.isBlack }) { key in
                         let xOffset = (CGFloat(key.whiteIndex + 1) * whiteKeyWidth) - (blackKeyWidth / 2.0)
                         let isActive = clientService.isNoteActive(key.id)
+                        let isMatched = isActive && (key.id == clientService.targetNoteMIDI)
+                        let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
 
                         VStack {
                             Spacer()
-                            Text(key.noteName)
-                                .font(.system(size: 7, weight: .bold))
+                            Text(label)
+                                .font(.system(size: 6.5, weight: .bold))
                                 .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 1)
                                 .padding(.bottom, 3)
                         }
                         .frame(width: blackKeyWidth, height: blackKeyHeight)
                         .background(
                             LinearGradient(
-                                colors: isActive ? [.purple, .indigo] : [Color(white: 0.22), .black],
+                                colors: isMatched ? [.green, Color.green.opacity(0.7)] : (isActive ? [.purple, .indigo] : [Color(white: 0.22), .black]),
                                 startPoint: .top,
                                 endPoint: .bottom
                             )

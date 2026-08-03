@@ -69,24 +69,24 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Last Played Note Display Badge (Permanently Visible)
+                // Last Played Note Display Badge (Green when target note matched!)
                 VStack(alignment: .center, spacing: 2) {
                     HStack(spacing: 4) {
-                        Image(systemName: "music.note")
-                            .foregroundColor(.cyan)
-                        Text("ULTIMA NOTA:")
+                        Image(systemName: clientService.lastPlayedIsTargetMatched ? "checkmark.circle.fill" : "music.note")
+                            .foregroundColor(clientService.lastPlayedIsTargetMatched ? .green : .cyan)
+                        Text(clientService.lastPlayedIsTargetMatched ? "NOTA GIUSTA!" : "ULTIMA NOTA:")
                             .font(.caption2)
                             .fontWeight(.bold)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(clientService.lastPlayedIsTargetMatched ? .green : .secondary)
                     }
 
                     Text(clientService.lastPlayedNoteText)
                         .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundColor(clientService.lastPlayedNoteMIDI != nil ? .cyan : .gray)
+                        .foregroundColor(clientService.lastPlayedIsTargetMatched ? .green : (clientService.lastPlayedNoteMIDI != nil ? .cyan : .gray))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
-                .background(Color.black.opacity(0.06))
+                .background(clientService.lastPlayedIsTargetMatched ? Color.green.opacity(0.12) : Color.black.opacity(0.06))
                 .cornerRadius(8)
 
                 // Dynamic Velocity (Tocco / Dinamica) Display Badge
