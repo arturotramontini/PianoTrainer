@@ -6,6 +6,8 @@ struct ContentView: View {
     @State private var selectedPreset: TCPClientService.Preset = TCPClientService.Preset.defaultPresets[0]
     @AppStorage("showConsole") private var showConsole: Bool = true
 
+    @State private var keyboardMonitor = KeyboardMonitor()
+
     var body: some View {
         VStack(spacing: 12) {
             // Header & Connection Bar
@@ -39,6 +41,12 @@ struct ContentView: View {
             maxHeight: .infinity
         )
         .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            keyboardMonitor.startMonitoring(clientService: clientService)
+        }
+        .onDisappear {
+            keyboardMonitor.stopMonitoring()
+        }
     }
 
     private var mainSynthControlsView: some View {
