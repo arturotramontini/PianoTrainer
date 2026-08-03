@@ -130,24 +130,25 @@ public final class MIDIManager: @unchecked Sendable {
         while i < length {
             let statusByte = bytes[i]
             let messageType = statusByte & 0xF0
+            let channel = statusByte & 0x0F
 
             if messageType == 0x90 { // Note On
                 if i + 2 < length {
                     let note = bytes[i + 1]
                     let velocity = bytes[i + 2]
                     if velocity > 0 {
-                        print("[\u{001B}[35mMIDI Input Hardware\u{001B}[0m] NoteOn: nota=\(note) vel=\(velocity)")
+                        print("[\u{001B}[35mMIDI Input Hardware\u{001B}[0m] NoteOn: nota=\(note) vel=\(velocity) ch=\(channel)")
                         let freq = midiNoteToFrequency(note)
-                        audio.enqueueNoteOn(frequency: freq, note: note, velocity: Double(velocity))
+                        audio.enqueueNoteOn(frequency: freq, note: note, velocity: Double(velocity), channel: channel)
                     } else {
-                        audio.enqueueNoteOff(note: note, sustainOff: 0)
+                        audio.enqueueNoteOff(note: note, channel: channel)
                     }
                     i += 3
                 } else { break }
             } else if messageType == 0x80 { // Note Off
                 if i + 1 < length {
                     let note = bytes[i + 1]
-                    audio.enqueueNoteOff(note: note, sustainOff: 0)
+                    audio.enqueueNoteOff(note: note, channel: channel)
                     i += (i + 2 < length ? 3 : 2)
                 } else { break }
             } else if messageType == 0xB0 { // Control Change (CC)

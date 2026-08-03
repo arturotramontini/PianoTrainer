@@ -74,35 +74,20 @@ public final class SF2SamplerEngine: @unchecked Sendable {
                 bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB),
                 bankLSB: UInt8(kAUSampler_DefaultBankLSB)
             )
-            
-            // Invia sequenza MIDI nativa Bank Select (0xB0) e Program Change (0xC0) a tutti i 16 canali MIDI
-            let au = sampler.audioUnit
-            for ch in UInt32(0)...15 {
-                // Bank Select MSB (CC 0)
-                MusicDeviceMIDIEvent(au, 0xB0 | ch, 0x00, UInt32(kAUSampler_DefaultMelodicBankMSB), 0)
-                // Bank Select LSB (CC 32)
-                MusicDeviceMIDIEvent(au, 0xB0 | ch, 0x20, UInt32(kAUSampler_DefaultBankLSB), 0)
-                // Program Change (0xC0)
-                MusicDeviceMIDIEvent(au, 0xC0 | ch, UInt32(program), 0, 0)
-            }
-
-            print("[\u{001B}[32m✓\u{001B}[0m] Strumento SoundFont SF2 attivato via MIDI 0xC0: Program \(program).")
+            print("[\u{001B}[32m✓\u{001B}[0m] Strumento SoundFont SF2 caricato: Program \(program).")
         } catch {
             print("[\u{001B}[31m✗\u{001B}[0m] Errore caricamento strumento SF2 Program \(program): \(error)")
         }
     }
 
-    public func noteOn(note: UInt8, velocity: UInt8) {
-        guard isRunning else {
-            print("[\u{001B}[31m✗\u{001B}[0m] SF2SamplerEngine non in esecuzione!")
-            return
-        }
-        print("[\u{001B}[32m▶\u{001B}[0m] SF2 NoteOn: nota=\(note) vel=\(velocity) program=\(currentProgram)")
-        sampler.startNote(note, withVelocity: velocity, onChannel: 0)
+    public func noteOn(note: UInt8, velocity: UInt8, channel: UInt8 = 0) {
+        guard isRunning else { return }
+        print("[\u{001B}[32m▶\u{001B}[0m] SF2 NoteOn: nota=\(note) vel=\(velocity) ch=\(channel) program=\(currentProgram)")
+        sampler.startNote(note, withVelocity: velocity, onChannel: channel)
     }
 
-    public func noteOff(note: UInt8) {
+    public func noteOff(note: UInt8, channel: UInt8 = 0) {
         guard isRunning else { return }
-        sampler.stopNote(note, onChannel: 0)
+        sampler.stopNote(note, onChannel: channel)
     }
 }

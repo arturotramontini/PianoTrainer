@@ -13,12 +13,12 @@ public final class AudioSynth: @unchecked Sendable {
         sf2Engine.loadInstrument(program: program)
     }
 
-    public func enqueueNoteOn(frequency: Double = 440.0, note: UInt8, velocity: Double) {
-        sf2Engine.noteOn(note: note, velocity: UInt8(max(0, min(127, velocity))))
+    public func enqueueNoteOn(frequency: Double = 440.0, note: UInt8, velocity: Double, channel: UInt8 = 0) {
+        sf2Engine.noteOn(note: note, velocity: UInt8(max(0, min(127, velocity))), channel: channel)
     }
 
-    public func enqueueNoteOff(note: UInt8, sustainOff: UInt32 = 0) {
-        sf2Engine.noteOff(note: note)
+    public func enqueueNoteOff(note: UInt8, channel: UInt8 = 0) {
+        sf2Engine.noteOff(note: note, channel: channel)
     }
 
     public func startAudio() throws {
