@@ -1,0 +1,176 @@
+import SwiftUI
+
+struct PianoKey: Identifiable {
+    let id: UInt8 // MIDI note number
+    let noteName: String
+    let isBlack: Bool
+    let whiteIndex: Int // Per il calcolo del posizionamento
+}
+
+struct PianoView: View {
+    @ObservedObject var clientService: TCPClientService
+    var startMidi: UInt8 = 48 // C3
+    var noteCount: Int = 25   // 2 ottave + C finale (48...72)
+
+    private var keys: [PianoKey] {
+        let noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+        var result: [PianoKey] = []
+        var currentWhiteIndex = 0
+
+        for midi in startMidi..<(startMidi + UInt8(noteCount)) {
+            let noteInOctave = Int(midi % 12)
+            let isBlack = [1, 3, 6, 8, 10].contains(noteInOctave)
+            let name = "\(noteNames[noteInOctave])\(Int(midi / 12) - 1)"
+            
+            result.append(PianoKey(
+                id: midi,
+                noteName: name,
+                isBlack: isBlack,
+                whiteIndex: isBlack ? currentWhiteIndex - 1 : currentWhiteIndex
+            ))
+
+            if !isBlack {
+                currentWhiteIndex += 1
+            }
+        }
+        return result
+    }
+
+    private var totalWhiteKeys: Int {
+        keys.filter { !$0.isBlack }.count
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let totalWidth = geometry.size.width
+            let whiteKeyWidth = totalWidth / CGFloat(totalWhiteKeys)
+            let height = geometry.size.height
+            let blackKeyWidth = whiteKeyWidth * 0.6
+            let blackKeyHeight = height * 0.6
+
+            ZStack(alignment: .topLeading) {
+                // Tasti Bianchi
+                HStack(spacing: 2) {
+                    ForEach(keys.filter { !$0.isBlack }) { key in
+                        let isActive = clientService.isNoteActive(key.id)
+                        
+                        VStack {
+                            Spacer()
+                            Text(key.noteName)
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(isActive ? .white : .black.opacity(0.7))
+                                .padding(.bottom, 6)
+                        }
+                        .frame(width: whiteKeyWidth - 2, height: height)
+                        .background(
+                            LinearGradient(
+                                colors: isActive ? [.cyan, .blue] : [.white, Color(white: 0.9)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .cornerRadius(6, corners: [.bottomLeft, .bottomRight])
+                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 2)
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { _ in
+                                    if !clientService.isNoteActive(key.id) {
+                                        clientService.sendNoteOn(midi: key.id)
+                                    }
+                                }
+                                .onEnded { _ in
+                                    clientService.sendNoteOff(midi: key.id)
+                                }
+                        )
+                    }
+                }
+
+                // Tasti Neri sopra i tasti bianchi
+                ForEach(keys.filter { $0.isBlack }) { key in
+                    let xOffset = (CGFloat(key.whiteIndex) + 0.7) * whiteKeyWidth
+                    let isActive = clientService.isNoteActive(key.id)
+
+                    VStack {
+                        Spacer()
+                        Text(key.noteName)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.bottom, 4)
+                    }
+                    .frame(width: blackKeyWidth, height: blackKeyHeight)
+                    .background(
+                        LinearGradient(
+                            colors: isActive ? [.purple, .indigo] : [Color(white: 0.25), .black],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .cornerRadius(4, corners: [.bottomLeft, .bottomRight])
+                    .shadow(color: .black.opacity(0.5), radius: 3, x: 1, y: 3)
+                    .offset(x: xOffset, y: 0)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                if !clientService.isNoteActive(key.id) {
+                                    clientService.sendNoteOn(midi: key.id)
+                                }
+                            }
+                            .onEnded { _ in
+                                clientService.sendNoteOff(midi: key.id)
+                            }
+                    )
+                }
+            }
+        }
+        .frame(height: 140)
+        .padding(8)
+        .background(Color.black.opacity(0.4))
+        .cornerRadius(12)
+    }
+}
+
+// Estensione helper per angoli arrotondati specifici
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: RectCorner) -> some View {
+        clipShape(RoundedCornerShape(radius: radius, corners: corners))
+    }
+}
+
+struct RectCorner: OptionSet {
+    let rawValue: Int
+    static let topLeft = RectCorner(rawValue: 1 << 0)
+    static let topRight = RectCorner(rawValue: 1 << 1)
+    static let bottomLeft = RectCorner(rawValue: 1 << 2)
+    static let bottomRight = RectCorner(rawValue: 1 << 3)
+    static let allCorners: RectCorner = [.topLeft, .topRight, .bottomLeft, .bottomRight]
+}
+
+struct RoundedCornerShape: Shape {
+    var radius: CGFloat = .infinity
+    var corners: RectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let p1 = CGPoint(x: rect.minX, y: rect.minY)
+        let p2 = CGPoint(x: rect.maxX, y: rect.minY)
+        let p3 = CGPoint(x: rect.maxX, y: rect.maxY)
+        let p4 = CGPoint(x: rect.minX, y: rect.maxY)
+
+        path.move(to: p1)
+        path.addLine(to: p2)
+        if corners.contains(.bottomRight) {
+            path.addArc(center: CGPoint(x: p3.x - radius, y: p3.y - radius), radius: radius, startAngle: Angle(degrees: 0), endAngle: Angle(degrees: 90), clockwise: false)
+        } else {
+            path.addLine(to: p3)
+        }
+        if corners.contains(.bottomLeft) {
+            path.addArc(center: CGPoint(x: p4.x + radius, y: p4.y - radius), radius: radius, startAngle: Angle(degrees: 90), endAngle: Angle(degrees: 180), clockwise: false)
+        } else {
+            path.addLine(to: p4)
+        }
+        path.addLine(to: p1)
+
+        return path
+    }
+}
