@@ -53,6 +53,16 @@ struct PianoView: View {
 
             let fixedIndicatorWidth = max(6.0, whiteKeyWidth * 0.35)
 
+            // Calcola le classi di altezza (Pitch Classes 0..11) per la geometria dell'accordo su tutte le ottave
+            let octavePitchClasses: Set<UInt8> = {
+                if clientService.trainerMode == .chords, let chord = clientService.targetChord {
+                    return Set(chord.notesMIDI.map { $0 % 12 })
+                } else if clientService.trainerMode == .singleNotes, let midi = clientService.targetNoteMIDI {
+                    return Set([midi % 12])
+                }
+                return Set<UInt8>()
+            }()
+
             ScrollView(.horizontal, showsIndicators: true) {
                 ZStack(alignment: .topLeading) {
                     // Tasti Bianchi
@@ -63,6 +73,7 @@ struct PianoView: View {
                             let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
                             let isMatched = isSingleMatched || isChordKeyMatched
                             let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
+                            let isOctaveMatch = octavePitchClasses.contains(key.id % 12)
                             let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
                             
                             VStack {
@@ -72,7 +83,7 @@ struct PianoView: View {
                                     .foregroundColor(isActive ? .white : .black.opacity(0.75))
                                     .padding(.bottom, 6)
                             }
-                            .frame(width: whiteKeyWidth - 1, height: height - 12)
+                            .frame(width: whiteKeyWidth - 1, height: height - 14)
                             .background(
                                 LinearGradient(
                                     colors: isMatched ? [.green, Color.green.opacity(0.8)] : (isActive ? [.cyan, .blue] : [.white, Color(white: 0.92)]),
@@ -83,16 +94,27 @@ struct PianoView: View {
                             .cornerRadius(5, corners: [.bottomLeft, .bottomRight])
                             .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 1.5)
                             .overlay(alignment: .top) {
-                                // Indicatori Rettangolari Arancione Scuro a larghezza FISSA uniformata FUORI sopra il tasto
-                                if clientService.showKeyHints && isTargetKey {
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
-                                        .frame(width: fixedIndicatorWidth, height: 5)
-                                        .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
-                                        .offset(y: -9)
+                                ZStack {
+                                    // 1. Indicatori Rettangolari Arancione Scuro a larghezza FISSA uniformata FUORI sopra il tasto esatto
+                                    if clientService.showKeyHints && isTargetKey {
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
+                                            .frame(width: fixedIndicatorWidth, height: 5)
+                                            .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
+                                            .offset(y: -9)
+                                    }
+
+                                    // 2. Cerchiolini Ciano per la Geometria dell'accordo su TUTTE le ottave (più in alto a y = -17)
+                                    if clientService.showOctaveGeometryHints && isOctaveMatch {
+                                        Circle()
+                                            .fill(Color.cyan.opacity(0.9))
+                                            .frame(width: 4.5, height: 4.5)
+                                            .shadow(color: Color.cyan.opacity(0.7), radius: 2, x: 0, y: -1)
+                                            .offset(y: -17)
+                                    }
                                 }
                             }
-                            .padding(.top, 12)
+                            .padding(.top, 14)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged { _ in
@@ -115,6 +137,7 @@ struct PianoView: View {
                         let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
                         let isMatched = isSingleMatched || isChordKeyMatched
                         let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
+                        let isOctaveMatch = octavePitchClasses.contains(key.id % 12)
                         let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
 
                         VStack {
@@ -137,16 +160,27 @@ struct PianoView: View {
                         .cornerRadius(4, corners: [.bottomLeft, .bottomRight])
                         .shadow(color: .black.opacity(0.4), radius: 2, x: 1, y: 2)
                         .overlay(alignment: .top) {
-                            // Indicatori Rettangolari Arancione Scuro a larghezza FISSA uniformata FUORI sopra il tasto nero
-                            if clientService.showKeyHints && isTargetKey {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
-                                    .frame(width: fixedIndicatorWidth, height: 5)
-                                    .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
-                                    .offset(y: -9)
+                            ZStack {
+                                // 1. Indicatori Rettangolari Arancione Scuro a larghezza FISSA uniformata FUORI sopra il tasto nero
+                                if clientService.showKeyHints && isTargetKey {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
+                                        .frame(width: fixedIndicatorWidth, height: 5)
+                                        .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
+                                        .offset(y: -9)
+                                }
+
+                                // 2. Cerchiolini Ciano per la Geometria dell'accordo su TUTTE le ottave (più in alto a y = -17)
+                                if clientService.showOctaveGeometryHints && isOctaveMatch {
+                                    Circle()
+                                        .fill(Color.cyan.opacity(0.9))
+                                        .frame(width: 4.5, height: 4.5)
+                                        .shadow(color: Color.cyan.opacity(0.7), radius: 2, x: 0, y: -1)
+                                        .offset(y: -17)
+                                }
                             }
                         }
-                        .offset(x: xOffset, y: 12)
+                        .offset(x: xOffset, y: 14)
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { _ in

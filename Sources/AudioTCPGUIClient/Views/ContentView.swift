@@ -204,15 +204,27 @@ struct ContentView: View {
 
                 Toggle(isOn: $clientService.showKeyHints) {
                     HStack(spacing: 4) {
-                        Image(systemName: "circle.circle.fill")
-                            .foregroundColor(.red)
-                        Text("Mostra suggerimento tasti (indicatori)")
+                        Image(systemName: "rectangle.fill")
+                            .foregroundColor(.orange)
+                        Text("Mostra tasti esatti (rettangoli arancioni)")
                             .font(.caption)
                             .fontWeight(.semibold)
                     }
                 }
                 .toggleStyle(.checkbox)
-                .help("Mostra piccoli cerchiolini luminosi sui tasti da premere per suggerire la nota o l'accordo")
+                .help("Mostra rettangolini arancioni sui tasti specifici dell'accordo/nota")
+
+                Toggle(isOn: $clientService.showOctaveGeometryHints) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.cyan)
+                        Text("Geometria su tutte le ottave (cerchiolini ciano)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                .help("Visualizza cerchiolini ciano su tutti i tasti dell'accordo su ciascuna ottava per osservarne il pattern geometrico")
 
                 Spacer()
 

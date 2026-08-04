@@ -31,7 +31,8 @@ final class TCPClientService: ObservableObject {
         }
     }
     @Published var speakPressedNotes: Bool = false // Checkbox per la lettura vocale della nota premuta
-    @Published var showKeyHints: Bool = false     // Checkbox per mostrare i cerchiolini di suggerimento sui tasti
+    @Published var showKeyHints: Bool = false     // Checkbox per mostrare i rettangolini di suggerimento sui tasti target
+    @Published var showOctaveGeometryHints: Bool = false // Checkbox per mostrare la geometria dell'accordo su tutte le ottave
     @Published var useItalianNotation: Bool = false { // Notazione Inglese (C4) vs Italiana (Do4)
         didSet {
             updateDisplayedNoteNames()
