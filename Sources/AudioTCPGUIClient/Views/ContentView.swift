@@ -50,15 +50,32 @@ struct ContentView: View {
 
     private var pianoTrainerBannerView: some View {
         VStack(spacing: 10) {
-            // Mode Selector Bar (Note Singole vs Accordi & Rivolti)
-            HStack {
+            // Mode Selector Bar & Inversion Filter Radio Buttons
+            HStack(spacing: 16) {
                 Picker("Modalità Didattica", selection: $clientService.trainerMode) {
                     ForEach(TCPClientService.TrainerMode.allCases) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 320)
+                .frame(maxWidth: 280)
+
+                if clientService.trainerMode == .chords {
+                    HStack(spacing: 6) {
+                        Text("Seleziona Rivolto:")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                        
+                        Picker("Rivolto", selection: $clientService.selectedInversionFilter) {
+                            ForEach(InversionFilter.allCases) { inv in
+                                Text(inv.rawValue).tag(inv)
+                            }
+                        }
+                        .pickerStyle(.radioGroup)
+                        .font(.caption)
+                    }
+                }
 
                 Spacer()
             }

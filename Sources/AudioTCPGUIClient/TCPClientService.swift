@@ -48,6 +48,7 @@ final class TCPClientService: ObservableObject {
     @Published var targetChordText: String = "Premere 'Nuovo Accordo' per iniziare"
     @Published var isChordMatched: Bool = false
     @Published var allowedChordQualities: Set<ChordQuality> = [.major, .minor]
+    @Published var selectedInversionFilter: InversionFilter = .all
 
     @Published var lastPlayedNoteMIDI: UInt8? = nil
     @Published var lastPlayedNoteText: String = "-"
@@ -301,7 +302,7 @@ final class TCPClientService: ObservableObject {
     /// Genera e pronuncia un nuovo accordo casuale con il suo rivolto
     func generateNewTargetChord() {
         let qualities = allowedChordQualities.isEmpty ? [.major, .minor] : Array(allowedChordQualities)
-        let newChord = ChordDefinition.random(allowedQualities: qualities, minMIDI: 48, maxMIDI: 72)
+        let newChord = ChordDefinition.random(allowedQualities: qualities, allowedInversion: selectedInversionFilter.targetInversion, minMIDI: 48, maxMIDI: 72)
         self.targetChord = newChord
         self.isChordMatched = false
         self.targetChordText = newChord.displayName(isItalian: useItalianNotation)

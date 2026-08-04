@@ -49,6 +49,24 @@ public enum ChordQuality: String, CaseIterable, Identifiable {
     }
 }
 
+public enum InversionFilter: String, CaseIterable, Identifiable {
+    case all = "Tutti (Casuale)"
+    case root = "Stato Fondamentale"
+    case first = "1° Rivolto"
+    case second = "2° Rivolto"
+
+    public var id: String { rawValue }
+
+    public var targetInversion: ChordInversion? {
+        switch self {
+        case .all: return nil
+        case .root: return .root
+        case .first: return .first
+        case .second: return .second
+        }
+    }
+}
+
 public enum ChordInversion: String, CaseIterable, Identifiable {
     case root = "Stato Fondamentale"
     case first = "1° Rivolto"
@@ -123,10 +141,10 @@ public struct ChordDefinition: Identifiable, Equatable {
     }
 
     /// Genera un accordo casuale entro la gamma centrale del pianoforte (es: C3...C5)
-    public static func random(allowedQualities: [ChordQuality] = [.major, .minor], minMIDI: UInt8 = 48, maxMIDI: UInt8 = 72) -> ChordDefinition {
+    public static func random(allowedQualities: [ChordQuality] = [.major, .minor], allowedInversion: ChordInversion? = nil, minMIDI: UInt8 = 48, maxMIDI: UInt8 = 72) -> ChordDefinition {
         let root = UInt8.random(in: minMIDI...maxMIDI)
         let quality = allowedQualities.randomElement() ?? .major
-        let inversion = ChordInversion.allCases.randomElement() ?? .root
+        let inversion = allowedInversion ?? (ChordInversion.allCases.randomElement() ?? .root)
         let preferFlat = NoteNameUtility.isBlackKey(midi: root) ? Bool.random() : false
 
         return ChordDefinition(rootMIDI: root, quality: quality, inversion: inversion, preferFlat: preferFlat)

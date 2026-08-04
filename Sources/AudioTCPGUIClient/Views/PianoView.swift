@@ -63,21 +63,14 @@ struct PianoView: View {
                             let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
                             let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
                             
-                            VStack(spacing: 2) {
-                                if clientService.showKeyHints && isTargetKey {
-                                    Circle()
-                                        .fill(clientService.trainerMode == .chords ? Color.cyan : Color.red)
-                                        .frame(width: 7, height: 7)
-                                        .shadow(color: (clientService.trainerMode == .chords ? Color.cyan : Color.red).opacity(0.8), radius: 3)
-                                        .padding(.top, 4)
-                                }
+                            VStack {
                                 Spacer()
                                 Text(label)
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(isActive ? .white : .black.opacity(0.75))
                                     .padding(.bottom, 6)
                             }
-                            .frame(width: whiteKeyWidth - 1, height: height)
+                            .frame(width: whiteKeyWidth - 1, height: height - 12)
                             .background(
                                 LinearGradient(
                                     colors: isMatched ? [.green, Color.green.opacity(0.8)] : (isActive ? [.cyan, .blue] : [.white, Color(white: 0.92)]),
@@ -87,6 +80,17 @@ struct PianoView: View {
                             )
                             .cornerRadius(5, corners: [.bottomLeft, .bottomRight])
                             .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 1.5)
+                            .overlay(alignment: .top) {
+                                // Indicatori Rettangolari Arancione Scuro FUORI sopra il tasto bianco
+                                if clientService.showKeyHints && isTargetKey {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
+                                        .frame(width: whiteKeyWidth * 0.7, height: 5)
+                                        .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
+                                        .offset(y: -9)
+                                }
+                            }
+                            .padding(.top, 12)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged { _ in
@@ -111,14 +115,7 @@ struct PianoView: View {
                         let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
                         let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
 
-                        VStack(spacing: 2) {
-                            if clientService.showKeyHints && isTargetKey {
-                                Circle()
-                                    .fill(clientService.trainerMode == .chords ? Color.cyan : Color.red)
-                                    .frame(width: 6, height: 6)
-                                    .shadow(color: (clientService.trainerMode == .chords ? Color.cyan : Color.red).opacity(0.8), radius: 3)
-                                    .padding(.top, 3)
-                            }
+                        VStack {
                             Spacer()
                             Text(label)
                                 .font(.system(size: 6.5, weight: .bold))
@@ -137,7 +134,17 @@ struct PianoView: View {
                         )
                         .cornerRadius(4, corners: [.bottomLeft, .bottomRight])
                         .shadow(color: .black.opacity(0.4), radius: 2, x: 1, y: 2)
-                        .offset(x: xOffset, y: 0)
+                        .overlay(alignment: .top) {
+                            // Indicatori Rettangolari Arancione Scuro FUORI sopra il tasto nero
+                            if clientService.showKeyHints && isTargetKey {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
+                                    .frame(width: blackKeyWidth * 0.9, height: 5)
+                                    .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
+                                    .offset(y: -9)
+                            }
+                        }
+                        .offset(x: xOffset, y: 12)
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { _ in
