@@ -171,19 +171,31 @@ struct ContentView: View {
 
             Divider()
 
-            // Options: Eyes-Closed Speech & Notation Toggle
+            // Options: Eyes-Closed Speech, Key Hint Dots & Notation Toggle
             HStack(spacing: 20) {
                 Toggle(isOn: $clientService.speakPressedNotes) {
                     HStack(spacing: 4) {
                         Image(systemName: "ear.and.waveform")
                             .foregroundColor(.purple)
-                        Text("Pronuncia nota premuta (esercitazione ad occhi chiusi)")
+                        Text("Pronuncia nota premuta (ad occhi chiusi)")
                             .font(.caption)
                             .fontWeight(.semibold)
                     }
                 }
                 .toggleStyle(.checkbox)
                 .help("Attiva/disattiva la sintesi vocale ad ogni tasto premuto")
+
+                Toggle(isOn: $clientService.showKeyHints) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "circle.circle.fill")
+                            .foregroundColor(.red)
+                        Text("Mostra suggerimento tasti (indicatori)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                .help("Mostra piccoli cerchiolini luminosi sui tasti da premere per suggerire la nota o l'accordo")
 
                 Spacer()
 

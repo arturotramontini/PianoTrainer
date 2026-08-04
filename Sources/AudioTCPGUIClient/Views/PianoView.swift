@@ -60,9 +60,17 @@ struct PianoView: View {
                             let isSingleMatched = (clientService.trainerMode == .singleNotes) && isActive && (key.id == clientService.targetNoteMIDI)
                             let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
                             let isMatched = isSingleMatched || isChordKeyMatched
+                            let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
                             let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
                             
-                            VStack {
+                            VStack(spacing: 2) {
+                                if clientService.showKeyHints && isTargetKey {
+                                    Circle()
+                                        .fill(clientService.trainerMode == .chords ? Color.cyan : Color.red)
+                                        .frame(width: 7, height: 7)
+                                        .shadow(color: (clientService.trainerMode == .chords ? Color.cyan : Color.red).opacity(0.8), radius: 3)
+                                        .padding(.top, 4)
+                                }
                                 Spacer()
                                 Text(label)
                                     .font(.system(size: 9, weight: .bold))
@@ -100,9 +108,17 @@ struct PianoView: View {
                         let isSingleMatched = (clientService.trainerMode == .singleNotes) && isActive && (key.id == clientService.targetNoteMIDI)
                         let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
                         let isMatched = isSingleMatched || isChordKeyMatched
+                        let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
                         let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
 
-                        VStack {
+                        VStack(spacing: 2) {
+                            if clientService.showKeyHints && isTargetKey {
+                                Circle()
+                                    .fill(clientService.trainerMode == .chords ? Color.cyan : Color.red)
+                                    .frame(width: 6, height: 6)
+                                    .shadow(color: (clientService.trainerMode == .chords ? Color.cyan : Color.red).opacity(0.8), radius: 3)
+                                    .padding(.top, 3)
+                            }
                             Spacer()
                             Text(label)
                                 .font(.system(size: 6.5, weight: .bold))
