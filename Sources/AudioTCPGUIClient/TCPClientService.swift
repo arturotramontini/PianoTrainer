@@ -276,24 +276,36 @@ final class TCPClientService: ObservableObject {
             }
         }
 
-        // MODALITÀ ACCORDI: Verifica in tempo reale se i tasti attualmente premuti corrispondono all'accordo bersaglio
+        // MODALITÀ ACCORDI: Considera "accordo corretto" SOLO se sono premuti SOLTANTO i tasti richiesti (uguaglianza esatta)
         if trainerMode == .chords, let chord = targetChord {
             let requiredNotes = chord.notesMIDI
-            let isCurrentlyMatched = requiredNotes.isSubset(of: activeNotes)
+            let isExactMatch = (activeNotes == requiredNotes)
 
-            if isCurrentlyMatched {
+            if isExactMatch {
                 if !isChordMatched {
                     isChordMatched = true
                     speechService.speakChordSuccess(chord, isItalian: useItalianNotation)
                     addLog("Piano Trainer: Accordo Indovinato -> \(targetChordText)", isError: false)
                 }
-                // Quando i tasti premuti sono corretti, mostra il nome della nota FONDAMENTALE dell'accordo
+                // Quando i tasti premuti sono esattamente quelli dell'accordo, mostra il nome della nota FONDAMENTALE dell'accordo
                 let rootName = useItalianNotation ?
                     NoteNameUtility.italianName(for: chord.rootMIDI, preferFlat: chord.preferFlat) :
                     NoteNameUtility.englishName(for: chord.rootMIDI, preferFlat: chord.preferFlat)
                 lastPlayedNoteText = "\(rootName) (Fondamentale)"
             } else {
                 isChordMatched = false
+
+                // Se non è l'accordo corretto:
+                // - Se c'è SOLTANTO un tasto premuto, mostra quella singola nota in modalità normale
+                // - Se ce ne sono 2 o più (o 0), la dicitura dell'accordo giusto non appare e il testo mostra "-"
+                if activeNotes.count == 1, let singleMIDI = activeNotes.first {
+                    let preferFlat = NoteNameUtility.isBlackKey(midi: singleMIDI) ? Bool.random() : false
+                    lastPlayedNoteText = useItalianNotation ?
+                        NoteNameUtility.italianName(for: singleMIDI, preferFlat: preferFlat) :
+                        NoteNameUtility.englishName(for: singleMIDI, preferFlat: preferFlat)
+                } else if activeNotes.count > 1 {
+                    lastPlayedNoteText = "-"
+                }
             }
         }
     }
