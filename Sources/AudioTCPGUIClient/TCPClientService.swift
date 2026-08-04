@@ -245,16 +245,6 @@ final class TCPClientService: ObservableObject {
             if (speakPressedNotes || isMatched) && trainerMode == .singleNotes {
                 speechService.speakNote(midi, preferFlat: preferFlat, isItalian: useItalianNotation)
             }
-
-            // MODALITÀ ACCORDI: Verifica se le note attualmente premute contengono l'accordo bersaglio
-            if trainerMode == .chords, let chord = targetChord {
-                let requiredNotes = chord.notesMIDI
-                if requiredNotes.isSubset(of: activeNotes) && !isChordMatched {
-                    isChordMatched = true
-                    speechService.speakChordSuccess(chord, isItalian: useItalianNotation)
-                    addLog("Piano Trainer: Accordo Indovinato -> \(targetChordText)", isError: false)
-                }
-            }
         } else {
             activeNotes.remove(midi)
 
@@ -275,6 +265,27 @@ final class TCPClientService: ObservableObject {
                 if duration >= 1.4 && trainerMode == .singleNotes {
                     generateNewTargetNote()
                 }
+            }
+        }
+
+        // MODALITÀ ACCORDI: Verifica in tempo reale se i tasti attualmente premuti corrispondono all'accordo bersaglio
+        if trainerMode == .chords, let chord = targetChord {
+            let requiredNotes = chord.notesMIDI
+            let isCurrentlyMatched = requiredNotes.isSubset(of: activeNotes)
+
+            if isCurrentlyMatched {
+                if !isChordMatched {
+                    isChordMatched = true
+                    speechService.speakChordSuccess(chord, isItalian: useItalianNotation)
+                    addLog("Piano Trainer: Accordo Indovinato -> \(targetChordText)", isError: false)
+                }
+                // Quando i tasti premuti sono corretti, mostra il nome della nota FONDAMENTALE dell'accordo
+                let rootName = useItalianNotation ?
+                    NoteNameUtility.italianName(for: chord.rootMIDI, preferFlat: chord.preferFlat) :
+                    NoteNameUtility.englishName(for: chord.rootMIDI, preferFlat: chord.preferFlat)
+                lastPlayedNoteText = "\(rootName) (Fondamentale)"
+            } else {
+                isChordMatched = false
             }
         }
     }
