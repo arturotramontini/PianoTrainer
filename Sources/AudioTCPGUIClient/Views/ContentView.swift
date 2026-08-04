@@ -260,7 +260,7 @@ struct ContentView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("💡 Suggerimento: tieni premuto un tasto per > 1.4s per ricevere una nuova nota proposta")
+                    Text("💡 Suggerimento: premi brevemente A0 (primo tasto a sinistra) oppure tieni premuto > 1.4s per una nuova proposta")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

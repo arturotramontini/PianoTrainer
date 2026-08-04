@@ -262,8 +262,15 @@ final class TCPClientService: ObservableObject {
                     lastDurationText = String(format: "%.2f s (Sostenuto 🎹)", duration)
                 }
 
-                // Requisito #1 (Modalità Note Singole): Se il tasto è stato tenuto premuto per più di 1.4 secondi, al rilascio propone una nuova nota casuale
-                if duration >= 1.4 && trainerMode == .singleNotes {
+                // Requisito A0 (Tastissimo A0 = MIDI 21): Breve pressione di A0 genera un nuovo accordo o una nuova nota senza usare il mouse
+                if midi == 21 && duration < 1.0 {
+                    if trainerMode == .chords {
+                        generateNewTargetChord()
+                    } else {
+                        generateNewTargetNote()
+                    }
+                } else if duration >= 1.4 && trainerMode == .singleNotes {
+                    // Requisito #1 (Modalità Note Singole): Se qualsiasi tasto è stato tenuto premuto per più di 1.4 secondi, al rilascio propone una nuova nota casuale
                     generateNewTargetNote()
                 }
             }
