@@ -17,16 +17,36 @@ final class TCPClientService: ObservableObject {
     @Published var sf2Program: UInt8 = 0
     @Published var logEntries: [LogEntry] = []
 
+    public enum TrainerMode: String, CaseIterable, Identifiable {
+        case singleNotes = "Note Singole"
+        case chords = "Accordi & Rivolti"
+
+        public var id: String { rawValue }
+    }
+
     // Piano Trainer & Speech Assistant
+    @Published var trainerMode: TrainerMode = .singleNotes {
+        didSet {
+            updateDisplayedNoteNames()
+        }
+    }
     @Published var speakPressedNotes: Bool = false // Checkbox per la lettura vocale della nota premuta
     @Published var useItalianNotation: Bool = false { // Notazione Inglese (C4) vs Italiana (Do4)
         didSet {
             updateDisplayedNoteNames()
         }
     }
+
+    // Modalità Note Singole
     @Published var targetNoteMIDI: UInt8? = nil
-    @Published var targetNoteText: String = "Premere un tasto per > 2s per iniziare"
+    @Published var targetNoteText: String = "Premere un tasto per > 1.4s per iniziare"
     @Published var targetPreferFlat: Bool = false
+
+    // Modalità Accordi & Rivolti
+    @Published var targetChord: ChordDefinition? = nil
+    @Published var targetChordText: String = "Premere 'Nuovo Accordo' per iniziare"
+    @Published var isChordMatched: Bool = false
+    @Published var allowedChordQualities: Set<ChordQuality> = [.major, .minor]
 
     @Published var lastPlayedNoteMIDI: UInt8? = nil
     @Published var lastPlayedNoteText: String = "-"
@@ -216,8 +236,18 @@ final class TCPClientService: ObservableObject {
             }
 
             // Pronuncia la nota (se la checkbox è attiva o se ha indovinato la nota proposta)
-            if speakPressedNotes || isMatched {
+            if (speakPressedNotes || isMatched) && trainerMode == .singleNotes {
                 speechService.speakNote(midi, preferFlat: preferFlat, isItalian: useItalianNotation)
+            }
+
+            // MODALITÀ ACCORDI: Verifica se le note attualmente premute contengono l'accordo bersaglio
+            if trainerMode == .chords, let chord = targetChord {
+                let requiredNotes = chord.notesMIDI
+                if requiredNotes.isSubset(of: activeNotes) && !isChordMatched {
+                    isChordMatched = true
+                    speechService.speakChordSuccess(chord, isItalian: useItalianNotation)
+                    addLog("Piano Trainer: Accordo Indovinato -> \(targetChordText)", isError: false)
+                }
             }
         } else {
             activeNotes.remove(midi)
@@ -235,8 +265,8 @@ final class TCPClientService: ObservableObject {
                     lastDurationText = String(format: "%.2f s (Sostenuto 🎹)", duration)
                 }
 
-                // Requisito #1: Se il tasto è stato tenuto premuto per più di 2 secondi, al rilascio propone una nuova nota casuale
-                if duration >= 2.0 {
+                // Requisito #1 (Modalità Note Singole): Se il tasto è stato tenuto premuto per più di 1.4 secondi, al rilascio propone una nuova nota casuale
+                if duration >= 1.4 && trainerMode == .singleNotes {
                     generateNewTargetNote()
                 }
             }
@@ -251,6 +281,9 @@ final class TCPClientService: ObservableObject {
         if let last = lastPlayedNoteMIDI {
             lastPlayedNoteText = useItalianNotation ? NoteNameUtility.italianName(for: last, preferFlat: lastPlayedPreferFlat) : NoteNameUtility.englishName(for: last, preferFlat: lastPlayedPreferFlat)
         }
+        if let chord = targetChord {
+            targetChordText = chord.displayName(isItalian: useItalianNotation)
+        }
     }
 
     /// Genera e pronuncia una nuova nota casuale tra gli 88 tasti del pianoforte (21 A0 ... 108 C8).
@@ -262,6 +295,17 @@ final class TCPClientService: ObservableObject {
         self.targetNoteText = useItalianNotation ? NoteNameUtility.italianName(for: newTarget, preferFlat: targetPreferFlat) : NoteNameUtility.englishName(for: newTarget, preferFlat: targetPreferFlat)
         self.speechService.speakProposedNote(newTarget, preferFlat: targetPreferFlat, isItalian: useItalianNotation)
         addLog("Piano Trainer: Nuova nota proposta -> \(targetNoteText)", isError: false)
+    }
+
+    /// Genera e pronuncia un nuovo accordo casuale con il suo rivolto
+    func generateNewTargetChord() {
+        let qualities = allowedChordQualities.isEmpty ? [.major, .minor] : Array(allowedChordQualities)
+        let newChord = ChordDefinition.random(allowedQualities: qualities, minMIDI: 48, maxMIDI: 72)
+        self.targetChord = newChord
+        self.isChordMatched = false
+        self.targetChordText = newChord.displayName(isItalian: useItalianNotation)
+        self.speechService.speakProposedChord(newChord, isItalian: useItalianNotation)
+        addLog("Piano Trainer: Nuovo accordo proposto -> \(targetChordText)", isError: false)
     }
 
     func setSF2Program(_ program: UInt8) {

@@ -57,7 +57,9 @@ struct PianoView: View {
                     HStack(spacing: 1) {
                         ForEach(keys.filter { !$0.isBlack }) { key in
                             let isActive = clientService.isNoteActive(key.id)
-                            let isMatched = isActive && (key.id == clientService.targetNoteMIDI)
+                            let isSingleMatched = (clientService.trainerMode == .singleNotes) && isActive && (key.id == clientService.targetNoteMIDI)
+                            let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
+                            let isMatched = isSingleMatched || isChordKeyMatched
                             let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
                             
                             VStack {
@@ -95,7 +97,9 @@ struct PianoView: View {
                     ForEach(keys.filter { $0.isBlack }) { key in
                         let xOffset = (CGFloat(key.whiteIndex + 1) * whiteKeyWidth) - (blackKeyWidth / 2.0)
                         let isActive = clientService.isNoteActive(key.id)
-                        let isMatched = isActive && (key.id == clientService.targetNoteMIDI)
+                        let isSingleMatched = (clientService.trainerMode == .singleNotes) && isActive && (key.id == clientService.targetNoteMIDI)
+                        let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
+                        let isMatched = isSingleMatched || isChordKeyMatched
                         let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
 
                         VStack {

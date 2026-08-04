@@ -2,7 +2,7 @@ import Foundation
 import AVFoundation
 
 /// Servizio vocale nativo macOS basato su AVSpeechSynthesizer.
-/// Pronuncia le note ed i suggerimenti d'allenamento senza lag o ritardi.
+/// Pronuncia le note, gli accordi ed i suggerimenti d'allenamento senza lag o ritardi.
 @MainActor
 final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
@@ -22,6 +22,20 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
     func speakProposedNote(_ midi: UInt8, preferFlat: Bool = false, isItalian: Bool = false) {
         let phoneticText = NoteNameUtility.speechPhoneticName(for: midi, preferFlat: preferFlat, languageIsItalian: isItalian)
         let promptText = isItalian ? "Prossima nota: \(phoneticText)" : "Next note: \(phoneticText)"
+        speakText(promptText, languageCode: isItalian ? "it-IT" : "en-US", interruptPrevious: true)
+    }
+
+    /// Propone a voce un nuovo accordo da suonare (es: "Prossimo accordo: Do Maggiore in 1° Rivolto").
+    func speakProposedChord(_ chord: ChordDefinition, isItalian: Bool = false) {
+        let phoneticText = chord.speechPhoneticName(isItalian: isItalian)
+        let promptText = isItalian ? "Prossimo accordo: \(phoneticText)" : "Next chord: \(phoneticText)"
+        speakText(promptText, languageCode: isItalian ? "it-IT" : "en-US", interruptPrevious: true)
+    }
+
+    /// Pronuncia la conferma di accordo indovinato (es: "Accordo di Do Maggiore eseguito correttamente!").
+    func speakChordSuccess(_ chord: ChordDefinition, isItalian: Bool = false) {
+        let phoneticText = chord.speechPhoneticName(isItalian: isItalian)
+        let promptText = isItalian ? "\(phoneticText), corretto!" : "\(phoneticText), correct!"
         speakText(promptText, languageCode: isItalian ? "it-IT" : "en-US", interruptPrevious: true)
     }
 

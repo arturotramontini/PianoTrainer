@@ -50,43 +50,57 @@ struct ContentView: View {
 
     private var pianoTrainerBannerView: some View {
         VStack(spacing: 10) {
+            // Mode Selector Bar (Note Singole vs Accordi & Rivolti)
+            HStack {
+                Picker("Modalità Didattica", selection: $clientService.trainerMode) {
+                    ForEach(TCPClientService.TrainerMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 320)
+
+                Spacer()
+            }
+
             HStack(spacing: 12) {
-                // Target Note Display Badge
+                // Target Display Badge (Note or Chord)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Image(systemName: "target")
+                        Image(systemName: clientService.trainerMode == .chords ? "music.quaver.manifest" : "target")
                             .foregroundColor(.orange)
-                        Text("NOTA PROPOSTA DAL MAC:")
+                        Text(clientService.trainerMode == .chords ? "ACCORDO PROPOSTO DAL MAC:" : "NOTA PROPOSTA DAL MAC:")
                             .font(.caption2)
                             .fontWeight(.bold)
                             .foregroundColor(.secondary)
                     }
 
-                    Text(clientService.targetNoteText)
-                        .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundColor(clientService.targetNoteMIDI != nil ? .orange : .primary)
+                    Text(clientService.trainerMode == .chords ? clientService.targetChordText : clientService.targetNoteText)
+                        .font(.system(size: clientService.trainerMode == .chords ? 20 : 24, weight: .black, design: .rounded))
+                        .foregroundColor((clientService.targetNoteMIDI != nil || clientService.targetChord != nil) ? .orange : .primary)
                 }
 
                 Spacer()
 
-                // Last Played Note Display Badge (Green when target note matched!)
+                // Last Played / Matched Status Badge
                 VStack(alignment: .center, spacing: 2) {
+                    let isMatched = (clientService.trainerMode == .chords) ? clientService.isChordMatched : clientService.lastPlayedIsTargetMatched
                     HStack(spacing: 4) {
-                        Image(systemName: clientService.lastPlayedIsTargetMatched ? "checkmark.circle.fill" : "music.note")
-                            .foregroundColor(clientService.lastPlayedIsTargetMatched ? .green : .cyan)
-                        Text(clientService.lastPlayedIsTargetMatched ? "NOTA GIUSTA!" : "ULTIMA NOTA:")
+                        Image(systemName: isMatched ? "checkmark.circle.fill" : "music.note")
+                            .foregroundColor(isMatched ? .green : .cyan)
+                        Text(isMatched ? (clientService.trainerMode == .chords ? "ACCORDO GIUSTO!" : "NOTA GIUSTA!") : "ULTIMA NOTA:")
                             .font(.caption2)
                             .fontWeight(.bold)
-                            .foregroundColor(clientService.lastPlayedIsTargetMatched ? .green : .secondary)
+                            .foregroundColor(isMatched ? .green : .secondary)
                     }
 
                     Text(clientService.lastPlayedNoteText)
                         .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundColor(clientService.lastPlayedIsTargetMatched ? .green : (clientService.lastPlayedNoteMIDI != nil ? .cyan : .gray))
+                        .foregroundColor(isMatched ? .green : (clientService.lastPlayedNoteMIDI != nil ? .cyan : .gray))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
-                .background(clientService.lastPlayedIsTargetMatched ? Color.green.opacity(0.12) : Color.black.opacity(0.06))
+                .background((clientService.trainerMode == .chords ? clientService.isChordMatched : clientService.lastPlayedIsTargetMatched) ? Color.green.opacity(0.12) : Color.black.opacity(0.06))
                 .cornerRadius(8)
 
                 // Dynamic Velocity (Tocco / Dinamica) Display Badge
@@ -131,25 +145,26 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Action Buttons: Generate & Hear Target Note
+                // Action Buttons: Generate New Note or Chord
                 HStack(spacing: 8) {
-                    Button(action: {
-                        clientService.generateNewTargetNote()
-                    }) {
-                        Label("Nuova Nota", systemImage: "dice.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                    .help("Estrai e pronuncia una nuova nota tra gli 88 tasti")
-
-                    if clientService.targetNoteMIDI != nil {
+                    if clientService.trainerMode == .chords {
+                        Button(action: {
+                            clientService.generateNewTargetChord()
+                        }) {
+                            Label("Nuovo Accordo", systemImage: "music.quaver.manifest")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple)
+                        .help("Estrai e pronuncia un nuovo accordo con il suo rivolto")
+                    } else {
                         Button(action: {
                             clientService.generateNewTargetNote()
                         }) {
-                            Image(systemName: "speaker.wave.2.fill")
+                            Label("Nuova Nota", systemImage: "dice.fill")
                         }
-                        .buttonStyle(.bordered)
-                        .help("Estrai e pronuncia un'altra nota")
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .help("Estrai e pronuncia una nuova nota tra gli 88 tasti")
                     }
                 }
             }
@@ -204,7 +219,7 @@ struct ContentView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("💡 Suggerimento: tieni premuto un tasto per > 2s per ricevere una nuova nota proposta")
+                    Text("💡 Suggerimento: tieni premuto un tasto per > 1.4s per ricevere una nuova nota proposta")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
