@@ -51,6 +51,8 @@ struct PianoView: View {
             let blackKeyWidth = whiteKeyWidth * 0.62
             let blackKeyHeight = height * 0.58
 
+            let fixedIndicatorWidth = max(6.0, whiteKeyWidth * 0.35)
+
             ScrollView(.horizontal, showsIndicators: true) {
                 ZStack(alignment: .topLeading) {
                     // Tasti Bianchi
@@ -81,11 +83,11 @@ struct PianoView: View {
                             .cornerRadius(5, corners: [.bottomLeft, .bottomRight])
                             .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 1.5)
                             .overlay(alignment: .top) {
-                                // Indicatori Rettangolari Arancione Scuro FUORI sopra il tasto bianco
+                                // Indicatori Rettangolari Arancione Scuro a larghezza FISSA uniformata FUORI sopra il tasto
                                 if clientService.showKeyHints && isTargetKey {
                                     RoundedRectangle(cornerRadius: 2)
                                         .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
-                                        .frame(width: whiteKeyWidth * 0.7, height: 5)
+                                        .frame(width: fixedIndicatorWidth, height: 5)
                                         .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
                                         .offset(y: -9)
                                 }
@@ -135,11 +137,11 @@ struct PianoView: View {
                         .cornerRadius(4, corners: [.bottomLeft, .bottomRight])
                         .shadow(color: .black.opacity(0.4), radius: 2, x: 1, y: 2)
                         .overlay(alignment: .top) {
-                            // Indicatori Rettangolari Arancione Scuro FUORI sopra il tasto nero
+                            // Indicatori Rettangolari Arancione Scuro a larghezza FISSA uniformata FUORI sopra il tasto nero
                             if clientService.showKeyHints && isTargetKey {
                                 RoundedRectangle(cornerRadius: 2)
                                     .fill(Color(red: 0.88, green: 0.40, blue: 0.0))
-                                    .frame(width: blackKeyWidth * 0.9, height: 5)
+                                    .frame(width: fixedIndicatorWidth, height: 5)
                                     .shadow(color: Color(red: 0.88, green: 0.40, blue: 0.0).opacity(0.9), radius: 3, x: 0, y: -1)
                                     .offset(y: -9)
                             }

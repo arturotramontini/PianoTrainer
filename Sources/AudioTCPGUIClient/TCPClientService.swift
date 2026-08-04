@@ -48,7 +48,11 @@ final class TCPClientService: ObservableObject {
     @Published var targetChordText: String = "Premere 'Nuovo Accordo' per iniziare"
     @Published var isChordMatched: Bool = false
     @Published var allowedChordQualities: Set<ChordQuality> = [.major, .minor]
-    @Published var selectedInversionFilter: InversionFilter = .all
+    @Published var selectedInversionFilter: InversionFilter = .all {
+        didSet {
+            updateCurrentChordInversion()
+        }
+    }
 
     @Published var lastPlayedNoteMIDI: UInt8? = nil
     @Published var lastPlayedNoteText: String = "-"
@@ -308,6 +312,24 @@ final class TCPClientService: ObservableObject {
         self.targetChordText = newChord.displayName(isItalian: useItalianNotation)
         self.speechService.speakProposedChord(newChord, isItalian: useItalianNotation)
         addLog("Piano Trainer: Nuovo accordo proposto -> \(targetChordText)", isError: false)
+    }
+
+    /// Aggiorna il rivolto dell'accordo proposto corrente in base al nuovo filtro selettore
+    func updateCurrentChordInversion() {
+        guard trainerMode == .chords, let chord = targetChord else { return }
+        if let newInversion = selectedInversionFilter.targetInversion {
+            let updatedChord = ChordDefinition(
+                rootMIDI: chord.rootMIDI,
+                quality: chord.quality,
+                inversion: newInversion,
+                preferFlat: chord.preferFlat
+            )
+            self.targetChord = updatedChord
+            self.isChordMatched = false
+            self.targetChordText = updatedChord.displayName(isItalian: useItalianNotation)
+            self.speechService.speakProposedChord(updatedChord, isItalian: useItalianNotation)
+            addLog("Piano Trainer: Rivolto aggiornato -> \(targetChordText)", isError: false)
+        }
     }
 
     func setSF2Program(_ program: UInt8) {
