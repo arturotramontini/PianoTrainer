@@ -53,10 +53,14 @@ struct PianoView: View {
 
             let fixedIndicatorWidth = max(6.0, whiteKeyWidth * 0.35)
 
-            // Calcola le classi di altezza (Pitch Classes 0..11) per la geometria dell'accordo su tutte le ottave
+            // Calcola le classi di altezza (Pitch Classes 0..11) per la geometria dell'accordo o della tonalità su tutte le ottave
             let octavePitchClasses: Set<UInt8> = {
                 if clientService.trainerMode == .chords, let chord = clientService.targetChord {
-                    return Set(chord.notesMIDI.map { $0 % 12 })
+                    if clientService.cyanDotMode == .keyScaleNotes, let keyInfo = clientService.currentKeySignature {
+                        return keyInfo.scalePitchClasses
+                    } else {
+                        return Set(chord.notesMIDI.map { $0 % 12 })
+                    }
                 } else if clientService.trainerMode == .singleNotes, let midi = clientService.targetNoteMIDI {
                     return Set([midi % 12])
                 }

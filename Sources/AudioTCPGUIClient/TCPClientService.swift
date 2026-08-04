@@ -44,6 +44,13 @@ final class TCPClientService: ObservableObject {
     @Published var targetNoteText: String = "Premere un tasto per > 1.4s per iniziare"
     @Published var targetPreferFlat: Bool = false
 
+    public enum CyanDotMode: String, CaseIterable, Identifiable {
+        case chordNotes = "Note dell'Accordo"
+        case keyScaleNotes = "Scala della Tonalità"
+
+        public var id: String { rawValue }
+    }
+
     // Modalità Accordi & Rivolti
     @Published var targetChord: ChordDefinition? = nil
     @Published var targetChordText: String = "Premere 'Nuovo Accordo' per iniziare"
@@ -53,6 +60,13 @@ final class TCPClientService: ObservableObject {
         didSet {
             updateCurrentChordInversion()
         }
+    }
+    @Published var cyanDotMode: CyanDotMode = .chordNotes
+
+    /// Restituisce la Tonalità e le alterazioni in chiave per l'accordo corrente
+    public var currentKeySignature: KeySignatureInfo? {
+        guard let chord = targetChord else { return nil }
+        return KeySignatureUtility.forChord(chord)
     }
 
     @Published var lastPlayedNoteMIDI: UInt8? = nil

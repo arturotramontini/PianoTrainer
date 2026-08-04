@@ -95,6 +95,19 @@ struct ContentView: View {
                     Text(clientService.trainerMode == .chords ? clientService.targetChordText : clientService.targetNoteText)
                         .font(.system(size: clientService.trainerMode == .chords ? 20 : 24, weight: .black, design: .rounded))
                         .foregroundColor((clientService.targetNoteMIDI != nil || clientService.targetChord != nil) ? .orange : .primary)
+
+                    // Scritte in carattere piccolo per Tonalità ed Alterazioni in Chiave
+                    if clientService.trainerMode == .chords, let keyInfo = clientService.currentKeySignature {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Tonalità: \(keyInfo.displayName(isItalian: clientService.useItalianNotation))")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.9))
+                            Text("Alterazioni in chiave: \(keyInfo.displayAccidentals(isItalian: clientService.useItalianNotation))")
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundColor(.white.opacity(0.75))
+                        }
+                        .padding(.top, 2)
+                    }
                 }
 
                 Spacer()
@@ -224,7 +237,17 @@ struct ContentView: View {
                     }
                 }
                 .toggleStyle(.checkbox)
-                .help("Visualizza cerchiolini ciano su tutti i tasti dell'accordo su ciascuna ottava per osservarne il pattern geometrico")
+                .help("Visualizza cerchiolini ciano su tutte le ottave per osservarne il pattern geometrico")
+
+                if clientService.showOctaveGeometryHints && clientService.trainerMode == .chords {
+                    Picker("Modalità Ciano", selection: $clientService.cyanDotMode) {
+                        ForEach(TCPClientService.CyanDotMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 260)
+                }
 
                 Spacer()
 
