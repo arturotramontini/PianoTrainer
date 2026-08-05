@@ -96,6 +96,7 @@ struct ContentView: View {
         VStack(spacing: 10) {
             trainerModeHeaderView
             trainerBadgesView
+            trainerOptionsBarView
             trainerActionButtonsView
         }
         .padding(12)
@@ -348,6 +349,33 @@ struct ContentView: View {
 
     private var trainerOptionsBarView: some View {
         HStack(spacing: 12) {
+            // Flag 1: Pronuncia nota premuta
+            Toggle(isOn: $clientService.speakPressedNotes) {
+                HStack(spacing: 4) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .foregroundColor(.green)
+                    Text("Pronuncia nota premuta (ed ascolta risposta)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
+            }
+            .toggleStyle(.checkbox)
+            .help("Abilita la risposta vocale sintetica ogni volta che premi un tasto sul pianoforte")
+
+            // Flag 2: Mostra tasti esatti
+            Toggle(isOn: $clientService.showKeyHints) {
+                HStack(spacing: 4) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundColor(.orange)
+                    Text("Mostra tasti esatti (rettangoli arancioni)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
+            }
+            .toggleStyle(.checkbox)
+            .help("Visualizza rettangolini arancioni sui tasti dell'accordo o della nota target")
+
+            // Flag 3: Geometria su tutte le ottave
             Toggle(isOn: $clientService.showOctaveGeometryHints) {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles")
@@ -372,9 +400,11 @@ struct ContentView: View {
 
             Spacer()
 
+            // Flag Notazione Italiana
             Toggle(isOn: $clientService.useItalianNotation) {
                 Text("Notazione Italiana (Do, Re, Mi)")
                     .font(.caption)
+                    .fontWeight(.semibold)
             }
             .toggleStyle(.checkbox)
             .help("Seleziona Notazione Italiana o Inglese (A..G)")
