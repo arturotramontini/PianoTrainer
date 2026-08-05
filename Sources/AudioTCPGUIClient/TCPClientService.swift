@@ -276,15 +276,24 @@ final class TCPClientService: ObservableObject {
                     lastDurationText = String(format: "%.2f s (Sostenuto 🎹)", duration)
                 }
 
-                // Requisito A0 (Tastissimo A0 = MIDI 21): Breve pressione di A0 genera un nuovo accordo o una nuova nota senza usare il mouse
-                if midi == 21 && duration < 1.0 {
-                    if trainerMode == .chords {
-                        generateNewTargetChord()
-                    } else {
-                        generateNewTargetNote()
+                // Requisito Tastissimi Hardware di Controllo Senza Mouse (A0, Bb0, B0):
+                // - A0 (MIDI 21): Breve pressione -> Nuovo accordo / Nuova nota casuale
+                // - Bb0 (MIDI 22): Breve pressione -> Trasponi l'accordo attuale di -1 semitone (1 semitono sotto)
+                // - B0 (MIDI 23): Breve pressione -> Trasponi l'accordo attuale di +1 semitone (1 semitono sopra)
+                if duration < 1.0 {
+                    if midi == 21 {
+                        if trainerMode == .chords {
+                            generateNewTargetChord()
+                        } else {
+                            generateNewTargetNote()
+                        }
+                    } else if midi == 22 && trainerMode == .chords {
+                        transposeTargetChord(by: -1)
+                    } else if midi == 23 && trainerMode == .chords {
+                        transposeTargetChord(by: 1)
                     }
                 } else if duration >= 1.4 && trainerMode == .singleNotes {
-                    // Requisito #1 (Modalità Note Singole): Se qualsiasi tasto è stato tenuto premuto per più di 1.4 secondi, al rilascio propone una nuova nota casuale
+                    // Requisito #1 (Modalità Note Singole): Se qualsiasi tasto è tenuto premuto per >1.4s, al rilascio propone una nuova nota
                     generateNewTargetNote()
                 }
             }
@@ -357,6 +366,27 @@ final class TCPClientService: ObservableObject {
         self.targetChordText = newChord.displayName(isItalian: useItalianNotation)
         self.speechService.speakProposedChord(newChord, isItalian: useItalianNotation)
         addLog("Piano Trainer: Nuovo accordo proposto -> \(targetChordText)", isError: false)
+    }
+
+    /// Traspone l'accordo proposto corrente di N semitoni in più (+1) o in meno (-1)
+    func transposeTargetChord(by semitones: Int) {
+        guard trainerMode == .chords, let chord = targetChord else { return }
+        let newRootInt = Int(chord.rootMIDI) + semitones
+        let clampedRoot = UInt8(max(36, min(84, newRootInt)))
+
+        let preferFlat = NoteNameUtility.isBlackKey(midi: clampedRoot) ? (semitones < 0 ? true : false) : chord.preferFlat
+
+        let newChord = ChordDefinition(
+            rootMIDI: clampedRoot,
+            quality: chord.quality,
+            inversion: chord.inversion,
+            preferFlat: preferFlat
+        )
+        self.targetChord = newChord
+        self.isChordMatched = false
+        self.targetChordText = newChord.displayName(isItalian: useItalianNotation)
+        self.speechService.speakProposedChord(newChord, isItalian: useItalianNotation)
+        addLog("Piano Trainer: Accordo Trasposto (\(semitones > 0 ? "+1" : "-1") semitono) -> \(targetChordText)", isError: false)
     }
 
     /// Aggiorna il rivolto dell'accordo proposto corrente in base al nuovo filtro selettore

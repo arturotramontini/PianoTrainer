@@ -283,7 +283,7 @@ struct ContentView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text("💡 Suggerimento: premi brevemente A0 (primo tasto a sinistra) oppure tieni premuto > 1.4s per una nuova proposta")
+                    Text("💡 Suggerimenti tasti hardware: A0 (nuovo accordo/nota) | Bb0 (trasponi -1 semitono) | B0 (trasponi +1 semitono)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
