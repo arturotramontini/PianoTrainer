@@ -62,11 +62,12 @@ final class TCPClientService: ObservableObject {
         }
     }
     @Published var cyanDotMode: CyanDotMode = .chordNotes
+    @Published var selectedScaleMode: MusicalScaleMode = .major
 
-    /// Restituisce la Tonalità e le alterazioni in chiave per l'accordo corrente
+    /// Restituisce la Tonalità/Modalità e le alterazioni in chiave per l'accordo corrente
     public var currentKeySignature: KeySignatureInfo? {
         guard let chord = targetChord else { return nil }
-        return KeySignatureUtility.forChord(chord)
+        return KeySignatureUtility.forChord(chord, scaleMode: selectedScaleMode)
     }
 
     @Published var lastPlayedNoteMIDI: UInt8? = nil

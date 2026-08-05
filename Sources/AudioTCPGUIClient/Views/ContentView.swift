@@ -61,19 +61,39 @@ struct ContentView: View {
                 .frame(maxWidth: 280)
 
                 if clientService.trainerMode == .chords {
-                    HStack(spacing: 6) {
-                        Text("Seleziona Rivolto:")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.secondary)
-                        
-                        Picker("Rivolto", selection: $clientService.selectedInversionFilter) {
-                            ForEach(InversionFilter.allCases) { inv in
-                                Text(inv.rawValue).tag(inv)
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Text("Rivolto:")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+                            
+                            Picker("Rivolto", selection: $clientService.selectedInversionFilter) {
+                                ForEach(InversionFilter.allCases) { inv in
+                                    Text(inv.rawValue).tag(inv)
+                                }
                             }
+                            .pickerStyle(.radioGroup)
+                            .font(.caption)
                         }
-                        .pickerStyle(.radioGroup)
-                        .font(.caption)
+
+                        Divider()
+                            .frame(height: 16)
+
+                        HStack(spacing: 4) {
+                            Text("Modalità Musicale:")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+
+                            Picker("Modalità Musicale", selection: $clientService.selectedScaleMode) {
+                                ForEach(MusicalScaleMode.allCases) { scale in
+                                    Text(scale.rawValue).tag(scale)
+                                }
+                            }
+                            .pickerStyle(.radioGroup)
+                            .font(.caption)
+                        }
                     }
                 }
 
@@ -96,12 +116,15 @@ struct ContentView: View {
                         .font(.system(size: clientService.trainerMode == .chords ? 20 : 24, weight: .black, design: .rounded))
                         .foregroundColor((clientService.targetNoteMIDI != nil || clientService.targetChord != nil) ? .orange : .primary)
 
-                    // Scritte in carattere piccolo per Tonalità ed Alterazioni in Chiave
+                    // Scritte in carattere piccolo per Tonalità, Alterazioni e Note della Scala
                     if clientService.trainerMode == .chords, let keyInfo = clientService.currentKeySignature {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Tonalità: \(keyInfo.displayName(isItalian: clientService.useItalianNotation))")
+                            Text("Modalità / Tonalità: \(keyInfo.displayName(isItalian: clientService.useItalianNotation))")
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.white.opacity(0.9))
+                            Text("Note della Scala: \(keyInfo.displayScaleNotes(isItalian: clientService.useItalianNotation))")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.cyan)
                             Text("Alterazioni in chiave: \(keyInfo.displayAccidentals(isItalian: clientService.useItalianNotation))")
                                 .font(.system(size: 10, weight: .regular))
                                 .foregroundColor(.white.opacity(0.75))
