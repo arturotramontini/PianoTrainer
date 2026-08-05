@@ -372,7 +372,9 @@ final class TCPClientService: ObservableObject {
             if isExactMatch {
                 if !isScoreMatched {
                     isScoreMatched = true
-                    speechService.speak(text: "Ottimo!")
+                    if speakPressedNotes {
+                        speechService.speak(text: "Ottimo!")
+                    }
                     addLog("Piano Trainer: Passo Spartito Riuscito [Battuta \(currentStep.bar)] -> \(currentStep.displayText)", isError: false)
 
                     // Avanzamento automatico dopo 0.35s al passo successivo del brano
@@ -521,7 +523,9 @@ final class TCPClientService: ObservableObject {
             let step = result.steps[currentScoreIndex]
             addLog("Piano Trainer: Avanzamento -> Battuta \(step.bar) (\(step.displayText))", isError: false)
         } else {
-            speechService.speak(text: "Complimenti! Brano completato!")
+            if speakPressedNotes {
+                speechService.speak(text: "Complimenti! Brano completato!")
+            }
             addLog("Piano Trainer: 🎉 Brano completato!", isError: false)
         }
     }
