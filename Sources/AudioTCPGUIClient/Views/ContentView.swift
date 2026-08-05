@@ -182,6 +182,7 @@ struct ContentView: View {
     private var trainerBadgesView: some View {
         HStack(spacing: 12) {
             targetDisplayBadgeView
+            GrandStaffView(clientService: clientService)
             Spacer()
             lastPlayedBadgeSubView
             velocityBadgeSubView
