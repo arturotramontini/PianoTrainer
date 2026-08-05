@@ -62,7 +62,12 @@ final class TCPClientService: ObservableObject {
         }
     }
     @Published var cyanDotMode: CyanDotMode = .chordNotes
-    @Published var selectedScaleMode: MusicalScaleMode = .major
+    @Published var selectedScaleMode: MusicalScaleMode = .major {
+        didSet {
+            updateTargetChordForSelectedScaleMode()
+        }
+    }
+    @Published var manualChordInputText: String = ""
 
     /// Restituisce la Tonalità/Modalità e le alterazioni in chiave per l'accordo corrente
     public var currentKeySignature: KeySignatureInfo? {
@@ -406,6 +411,46 @@ final class TCPClientService: ObservableObject {
             self.speechService.speakProposedChord(updatedChord, isItalian: useItalianNotation)
             addLog("Piano Trainer: Rivolto aggiornato -> \(targetChordText)", isError: false)
         }
+    }
+
+    /// Aggiorna la qualità dell'accordo proposto quando cambia la modalità musicale/scala
+    func updateTargetChordForSelectedScaleMode() {
+        guard trainerMode == .chords, let chord = targetChord else { return }
+        let newQuality = selectedScaleMode.defaultChordQuality
+        if chord.quality != newQuality {
+            let updatedChord = ChordDefinition(
+                rootMIDI: chord.rootMIDI,
+                quality: newQuality,
+                inversion: chord.inversion,
+                preferFlat: chord.preferFlat
+            )
+            self.targetChord = updatedChord
+            self.isChordMatched = false
+            self.targetChordText = updatedChord.displayName(isItalian: useItalianNotation)
+            self.speechService.speakProposedChord(updatedChord, isItalian: useItalianNotation)
+            addLog("Piano Trainer: Accordo aggiornato per modalità \(selectedScaleMode.rawValue) -> \(targetChordText)", isError: false)
+        }
+    }
+
+    /// Analizza ed imposta a mano l'accordo proposto tramite testo inserito dall'utente (es. "Do d 4 3", "C#4", "Mi b 3 2")
+    func applyManualChordInput() {
+        guard let result = KeySignatureUtility.parseManualInput(manualChordInputText) else {
+            addLog("Piano Trainer: Formato testo non riconosciuto. Esempi validi: 'Do d 4 3', 'C#4', 'Mi b 3 2'", isError: true)
+            return
+        }
+
+        self.selectedScaleMode = result.scaleMode
+        let newChord = ChordDefinition(
+            rootMIDI: result.midiNote,
+            quality: result.chordQuality,
+            inversion: selectedInversionFilter.targetInversion ?? .root,
+            preferFlat: result.preferFlat
+        )
+        self.targetChord = newChord
+        self.isChordMatched = false
+        self.targetChordText = newChord.displayName(isItalian: useItalianNotation)
+        self.speechService.speakProposedChord(newChord, isItalian: useItalianNotation)
+        addLog("Piano Trainer: Accordo Manuale Impostato -> \(targetChordText) [\(result.scaleMode.rawValue)]", isError: false)
     }
 
     func setSF2Program(_ program: UInt8) {

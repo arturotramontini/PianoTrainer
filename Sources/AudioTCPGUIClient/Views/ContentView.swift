@@ -198,9 +198,27 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Action Buttons: Generate New Note or Chord
+                // Action Buttons & Manual Chord Input
                 HStack(spacing: 8) {
                     if clientService.trainerMode == .chords {
+                        HStack(spacing: 4) {
+                            TextField("Es. Do d 4 3 o C#4", text: $clientService.manualChordInputText)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 140)
+                                .onSubmit {
+                                    clientService.applyManualChordInput()
+                                }
+                                .help("Imposta accordo a mano: Nota (Do/C) Alterazione (d/#/b) Ottava (0..8) Modalità (1..8)")
+
+                            Button(action: {
+                                clientService.applyManualChordInput()
+                            }) {
+                                Image(systemName: "square.and.pencil")
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Applica l'accordo scritto nel campo di testo")
+                        }
+
                         Button(action: {
                             clientService.generateNewTargetChord()
                         }) {

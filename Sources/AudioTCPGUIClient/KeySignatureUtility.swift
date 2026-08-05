@@ -37,6 +37,15 @@ public enum MusicalScaleMode: String, CaseIterable, Identifiable {
         case .dorianJazz:       return [0, 2, 3, 5, 7, 9, 10]
         }
     }
+
+    public var defaultChordQuality: ChordQuality {
+        switch self {
+        case .major, .pentatonicMajor:
+            return .major
+        case .minorNatural, .minorHarmonic, .minorMelodic, .pentatonicMinor, .blues, .dorianJazz:
+            return .minor
+        }
+    }
 }
 
 public struct KeySignatureInfo: Equatable {
@@ -59,6 +68,13 @@ public struct KeySignatureInfo: Equatable {
     public func displayScaleNotes(isItalian: Bool) -> String {
         isItalian ? scaleNotesTextItalian : scaleNotesTextEnglish
     }
+}
+
+public struct ManualChordParseResult {
+    public let midiNote: UInt8
+    public let scaleMode: MusicalScaleMode
+    public let chordQuality: ChordQuality
+    public let preferFlat: Bool
 }
 
 public struct KeySignatureUtility {
@@ -113,6 +129,115 @@ public struct KeySignatureUtility {
             scalePitchClasses: scalePitchClasses,
             scaleNotesTextItalian: scaleTextIt,
             scaleNotesTextEnglish: scaleTextEn
+        )
+    }
+
+    /// Analizza e converte una stringa di testo libera (es: "Do d 4 3", "C#4", "Mi b 3 7") in un accordo e modalità esatta
+    public static func parseManualInput(_ rawInput: String) -> ManualChordParseResult? {
+        let cleaned = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: " ")
+            .replacingOccurrences(of: ".", with: " ")
+            .lowercased()
+
+        if cleaned.isEmpty { return nil }
+
+        let tokens = cleaned.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+
+        var basePC: Int? = nil
+        var accidental: Int = 0
+        var octave: Int = 4
+        var modeIndex: Int = 1
+        var preferFlat: Bool = false
+
+        // Tabella note
+        let noteMap: [String: Int] = [
+            "c": 0, "do": 0,
+            "d": 2, "re": 2,
+            "e": 4, "mi": 4,
+            "f": 5, "fa": 5,
+            "g": 7, "sol": 7,
+            "a": 9, "la": 9,
+            "b": 11, "si": 11
+        ]
+
+        let remainingStr = cleaned
+
+        // Cerca prima il nome della nota nel testo
+        for (name, pc) in noteMap {
+            if remainingStr.hasPrefix(name) || tokens.contains(name) {
+                basePC = pc
+                break
+            }
+        }
+
+        // Se non troviamo una nota con prefisso semplice, cerchiamo di separare cifre e lettere
+        if basePC == nil {
+            for token in tokens {
+                for (name, pc) in noteMap {
+                    if token.starts(with: name) {
+                        basePC = pc
+                        break
+                    }
+                }
+                if basePC != nil { break }
+            }
+        }
+
+        guard let foundPC = basePC else { return nil }
+
+        // Cerca alterazioni: 'd', '#', 'diesis' vs 'b', '♭', 'bemolle'
+        if cleaned.contains("#") || cleaned.contains("d") || cleaned.contains("diesis") || cleaned.contains("sharp") {
+            // Attenzione: 'd' come nota Re vs 'd' come diesis
+            if cleaned.contains("#") || cleaned.contains("diesis") || cleaned.contains("sharp") || (cleaned.contains(" d ") || cleaned.hasSuffix(" d")) {
+                accidental = 1
+                preferFlat = false
+            }
+        }
+        if cleaned.contains("b") || cleaned.contains("♭") || cleaned.contains("bemolle") || cleaned.contains("flat") {
+            // Attenzione: 'b' come nota Si (inglese) vs 'b' come bemolle
+            if cleaned.contains("♭") || cleaned.contains("bemolle") || cleaned.contains("flat") || cleaned.contains(" b ") || cleaned.hasSuffix(" b") || tokens.contains("b") {
+                accidental = -1
+                preferFlat = true
+            }
+        }
+
+        // Estrai numeri (ottava 0..8 ed indice modalità 1..8)
+        let numbers = tokens.compactMap { Int($0) }
+        if numbers.count >= 1 {
+            // Il primo numero se in 0..8 è l'ottava
+            if numbers[0] >= 0 && numbers[0] <= 8 {
+                octave = numbers[0]
+            }
+        }
+        if numbers.count >= 2 {
+            // Il secondo numero se in 1..8 è la modalità
+            if numbers[1] >= 1 && numbers[1] <= 8 {
+                modeIndex = numbers[1]
+            }
+        }
+
+        // O estrai numeri da stringhe composte come "c4" o "do4"
+        let digitMatches = cleaned.compactMap { $0.wholeNumberValue }
+        if numbers.isEmpty && !digitMatches.isEmpty {
+            if digitMatches[0] >= 0 && digitMatches[0] <= 8 {
+                octave = digitMatches[0]
+            }
+            if digitMatches.count >= 2 && digitMatches[1] >= 1 && digitMatches[1] <= 8 {
+                modeIndex = digitMatches[1]
+            }
+        }
+
+        let totalMIDI = (octave + 1) * 12 + foundPC + accidental
+        let clampedMIDI = UInt8(max(21, min(108, totalMIDI)))
+
+        let modes = MusicalScaleMode.allCases
+        let selectedMode = (modeIndex >= 1 && modeIndex <= modes.count) ? modes[modeIndex - 1] : .major
+
+        return ManualChordParseResult(
+            midiNote: clampedMIDI,
+            scaleMode: selectedMode,
+            chordQuality: selectedMode.defaultChordQuality,
+            preferFlat: preferFlat
         )
     }
 }
