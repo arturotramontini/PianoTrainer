@@ -4,9 +4,9 @@ import SwiftUI
 /// Visualizza Chiave di Violino (Treble Clef su Sol4) e Chiave di Basso (Bass Clef su Fa3 con puntini a cavallo della 4ª riga)
 /// con tagli addizionali automatici per l'intera estensione del pianoforte (A0 ... C8).
 ///
-/// MOSTRA 2 COLONNE:
-/// 1. Colonna Sinistra: Note Proposte dal Mac (Target Note / Chord / Score Step)
-/// 2. Colonna Destra (a ~1.5 cm di distanza): Note Attualmente Suonate dall'Utente sulla Tastiera MIDI (Active Notes)
+/// MOSTRA 2 COLONNE CON SOTTO-COLONNE SEPARATE PER NOTE NATURALI ED ALTERATE:
+/// 1. Colonna Sinistra (PROPOSTE): Note Naturali su xBaseTarget, Note Alterate traslate a sinistra di 5mm (~15pt)
+/// 2. Colonna Destra (SUONATE): Note Naturali su xBasePlayed, Note Alterate traslate a sinistra di 5mm (~15pt)
 struct GrandStaffView: View {
     @ObservedObject var clientService: TCPClientService
 
@@ -35,16 +35,16 @@ struct GrandStaffView: View {
             }
 
             ZStack {
-                // Sfondo rettangolare scuro
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.black.opacity(0.16))
+                // Sfondo rettangolare scuro ingrandito in altezza per contenere completamente A0 e C8
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.black.opacity(0.18))
 
-                // Canvas di disegno vettoriale del pentagramma ingrandito in verticale (2 colonne)
+                // Canvas di disegno vettoriale del pentagramma (2 colonne con sotto-colonna alterata a sinistra di 5mm)
                 StaffCanvasView(targetNotesInfo: targetNotesInfo, playedNotesInfo: playedNotesInfo)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 10)
             }
-            .frame(width: 220, height: 520)
+            .frame(width: 250, height: 680)
         }
     }
 
@@ -137,9 +137,9 @@ struct GrandStaffView: View {
     }
 }
 
-/// Canvas di disegno vettoriale a 2 COLONNE:
-/// - Colonna Sinistra (xTarget): Note Proposte dal Mac
-/// - Colonna Destra (xPlayed): Note Suonate in Tempo Reale sulla Tastiera MIDI
+/// Canvas di disegno vettoriale a 2 COLONNE con sotto-colonne separate per note naturali ed alterate (traslate di 5mm a sinistra):
+/// - Colonna 1 (xBaseTarget): Note Proposte dal Mac
+/// - Colonna 2 (xBasePlayed): Note Suonate in Tempo Reale sulla Tastiera MIDI
 struct StaffCanvasView: View {
     let targetNotesInfo: [GrandStaffView.StaffNoteInfo]
     let playedNotesInfo: [GrandStaffView.StaffNoteInfo]
@@ -150,24 +150,24 @@ struct StaffCanvasView: View {
             let height = size.height
 
             // Centro del pentagramma corrisponde al Do4 (diatonicStep 0)
-            let centerY = height * 0.50
-            let lineSpacing: CGFloat = 22.0 // Distanza tra 2 righe adiacenti (ingrandita 1.5x ulteriore)
+            let centerY = height * 0.51
+            let lineSpacing: CGFloat = 22.0 // Distanza tra 2 righe adiacenti
             let stepHeight: CGFloat = lineSpacing / 2.0 // Distanza tra riga e spazio adiacente (11.0pt)
 
-            // Posizionamento orizzontale delle due colonne
+            // Posizionamento orizzontale delle due colonne base
             let xClef: CGFloat = 24.0
-            let xTarget: CGFloat = width * 0.52 // Colonna Note Proposte
-            let xPlayed: CGFloat = width * 0.82 // Colonna Note Suonate (distanza ~1.5 cm)
+            let xBaseTarget: CGFloat = width * 0.46 // Base Colonna Note Proposte
+            let xBasePlayed: CGFloat = width * 0.82 // Base Colonna Note Suonate (distanza ~1.5 cm)
 
             // Header delle Colonne
             context.draw(
                 Text("PROPOSTE").font(.system(size: 8, weight: .bold)).foregroundColor(.orange),
-                at: CGPoint(x: xTarget, y: 12),
+                at: CGPoint(x: xBaseTarget - 7, y: 14),
                 anchor: .center
             )
             context.draw(
                 Text("SUONATE").font(.system(size: 8, weight: .bold)).foregroundColor(.cyan),
-                at: CGPoint(x: xPlayed, y: 12),
+                at: CGPoint(x: xBasePlayed - 7, y: 14),
                 anchor: .center
             )
 
@@ -228,17 +228,21 @@ struct StaffCanvasView: View {
             context.fill(dotPathLower, with: .color(.white))
 
             // -------------------------------------------------------------
-            // 3. FUNZIONE HELPER PER DISEGNARE LE NOTE E I TAGLI ADDIZIONALI
+            // 3. FUNZIONE HELPER PER DISEGNARE LE NOTE CON SOTTO-COLONNA ALTERATA (5mm a sinistra)
             // -------------------------------------------------------------
             let noteHeight: CGFloat = lineSpacing / 3.0 // Exact 1/3 line spacing (7.33pt)
             let noteWidth: CGFloat = lineSpacing * 0.58 // 12.7pt
+            let subColumnOffset: CGFloat = 15.0 // Distanza ~5 mm a sinistra per le note alterate!
 
-            func drawNotes(_ notes: [GrandStaffView.StaffNoteInfo], atX noteX: CGFloat, defaultColor: Color) {
+            func drawNotes(_ notes: [GrandStaffView.StaffNoteInfo], xBase: CGFloat, defaultColor: Color) {
                 for note in notes {
+                    let isAltered = (note.accidental != nil)
+                    // Note naturali su xBase, note alterate traslate a sinistra di ~5mm (15pt)
+                    let noteX = isAltered ? (xBase - subColumnOffset) : xBase
                     let noteY = centerY - (CGFloat(note.diatonicStep) * stepHeight)
                     let noteColor: Color = note.isMatched ? .green : defaultColor
 
-                    // 3a. Disegna i Tagli Addizionali (Ledger Lines estesi a tutta l'ampiezza delle 2 colonne)
+                    // 3a. Disegna i Tagli Addizionali (Ledger Lines)
                     if note.diatonicStep == 0 {
                         var path = Path()
                         path.move(to: CGPoint(x: noteX - 12, y: noteY))
@@ -266,7 +270,7 @@ struct StaffCanvasView: View {
                         }
                     }
 
-                    // 3b. Disegna la Nota
+                    // 3b. Disegna la Nota (Pallino)
                     let noteRect = CGRect(
                         x: noteX - (noteWidth / 2.0),
                         y: noteY - (noteHeight / 2.0),
@@ -277,11 +281,11 @@ struct StaffCanvasView: View {
                     context.fill(notePath, with: .color(noteColor))
                     context.stroke(notePath, with: .color(.white.opacity(0.9)), lineWidth: 1.1)
 
-                    // 3c. Disegna l'Alterazione (♯ o ♭) a sinistra della nota
+                    // 3c. Disegna l'Alterazione (♯ o ♭) a sinistra della nota alterata
                     if let acc = note.accidental {
                         context.draw(
-                            Text(acc).font(.system(size: 16, weight: .bold)).foregroundColor(noteColor),
-                            at: CGPoint(x: noteX - 18, y: noteY),
+                            Text(acc).font(.system(size: 15, weight: .bold)).foregroundColor(noteColor),
+                            at: CGPoint(x: noteX - 14, y: noteY),
                             anchor: .center
                         )
                     }
@@ -289,10 +293,10 @@ struct StaffCanvasView: View {
             }
 
             // Disegna la Colonna 1: Note Proposte dal Mac (Orange / Black / Green)
-            drawNotes(targetNotesInfo, atX: xTarget, defaultColor: .orange)
+            drawNotes(targetNotesInfo, xBase: xBaseTarget, defaultColor: .orange)
 
             // Disegna la Colonna 2: Note Suonate in Tempo Reale dall'Utente (Cyan / Green)
-            drawNotes(playedNotesInfo, atX: xPlayed, defaultColor: .cyan)
+            drawNotes(playedNotesInfo, xBase: xBasePlayed, defaultColor: .cyan)
         }
     }
 }
