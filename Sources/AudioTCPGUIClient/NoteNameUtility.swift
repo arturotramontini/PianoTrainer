@@ -48,8 +48,8 @@ public struct NoteNameUtility {
         let octaveNumber = Int(midi / 12) - 1
 
         if languageIsItalian {
-            let namesSharp = ["Do", "Do diesis", "Re", "Re diesis", "Mi", "Fa", "Fa diesis", "Sol", "Sol diesis", "La", "La diesis", "Si"]
-            let namesFlat  = ["Do", "Re bemolle", "Re", "Mi bemolle", "Mi", "Fa", "Sol bemolle", "Sol", "La bemolle", "La", "Si bemolle", "Si"]
+            let namesSharp = ["Do", "Do diesis", "Re", "Re diesis", "Mì", "Fa", "Fa diesis", "Sol", "Sol diesis", "La", "La diesis", "Si"]
+            let namesFlat  = ["Do", "Re bemolle", "Re", "Mì bemolle", "Mì", "Fa", "Sol bemolle", "Sol", "La bemolle", "La", "Si bemolle", "Si"]
             let names = preferFlat ? namesFlat : namesSharp
             return "\(names[noteInOctave]) \(octaveNumber)"
         } else {
