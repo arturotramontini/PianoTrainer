@@ -3,6 +3,10 @@ import SwiftUI
 /// Componente grafico SwiftUI per la visualizzazione delle note sul Pentagramma Musicale (Grand Staff View).
 /// Visualizza Chiave di Violino (Treble Clef su Sol4) e Chiave di Basso (Bass Clef su Fa3 con puntini a cavallo della 4ª riga)
 /// con tagli addizionali automatici per l'intera estensione del pianoforte (A0 ... C8).
+///
+/// MOSTRA 2 COLONNE:
+/// 1. Colonna Sinistra: Note Proposte dal Mac (Target Note / Chord / Score Step)
+/// 2. Colonna Destra (a ~1.5 cm di distanza): Note Attualmente Suonate dall'Utente sulla Tastiera MIDI (Active Notes)
 struct GrandStaffView: View {
     @ObservedObject var clientService: TCPClientService
 
@@ -16,26 +20,31 @@ struct GrandStaffView: View {
 
     var body: some View {
         let targetNotes = currentTargetNotes
+        let activeNotes = clientService.activeNotes
         let isMatched = isCurrentStepMatched
-        let notesInfo = calculateNotesInfo(targetNotes: targetNotes, isMatched: isMatched)
+
+        let targetNotesInfo = calculateNotesInfo(notes: targetNotes, isMatched: isMatched)
+        let playedNotesInfo = calculateNotesInfo(notes: activeNotes, isMatched: isMatched)
 
         VStack(alignment: .center, spacing: 4) {
-            Text("PENTAGRAMMA")
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.secondary)
+            HStack(spacing: 12) {
+                Text("PENTAGRAMMA")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.secondary)
+            }
 
             ZStack {
                 // Sfondo rettangolare scuro
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.black.opacity(0.14))
+                    .fill(Color.black.opacity(0.16))
 
-                // Canvas di disegno vettoriale del pentagramma ingrandito in verticale
-                StaffCanvasView(notesInfo: notesInfo)
+                // Canvas di disegno vettoriale del pentagramma ingrandito in verticale (2 colonne)
+                StaffCanvasView(targetNotesInfo: targetNotesInfo, playedNotesInfo: playedNotesInfo)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 10)
             }
-            .frame(width: 165, height: 390)
+            .frame(width: 220, height: 520)
         }
     }
 
@@ -67,9 +76,9 @@ struct GrandStaffView: View {
         }
     }
 
-    /// Calcola i dati di posizionamento fonetico e diatonico per ogni nota target
-    private func calculateNotesInfo(targetNotes: Set<UInt8>, isMatched: Bool) -> [StaffNoteInfo] {
-        targetNotes.map { midi in
+    /// Calcola i dati di posizionamento fonetico e diatonico per ogni insieme di note
+    private func calculateNotesInfo(notes: Set<UInt8>, isMatched: Bool) -> [StaffNoteInfo] {
+        notes.map { midi in
             let pitchClass = Int(midi % 12)
             let octave = Int(midi / 12) - 1
 
@@ -128,10 +137,12 @@ struct GrandStaffView: View {
     }
 }
 
-/// Canvas di disegno vettoriale per le 5 righe della Chiave di Violino, 5 righe della Chiave di Basso,
-/// tagli addizionali, chiavi musicali posizionate con precisione teorica e pallini neri delle note.
+/// Canvas di disegno vettoriale a 2 COLONNE:
+/// - Colonna Sinistra (xTarget): Note Proposte dal Mac
+/// - Colonna Destra (xPlayed): Note Suonate in Tempo Reale sulla Tastiera MIDI
 struct StaffCanvasView: View {
-    let notesInfo: [GrandStaffView.StaffNoteInfo]
+    let targetNotesInfo: [GrandStaffView.StaffNoteInfo]
+    let playedNotesInfo: [GrandStaffView.StaffNoteInfo]
 
     var body: some View {
         Canvas { context, size in
@@ -140,8 +151,25 @@ struct StaffCanvasView: View {
 
             // Centro del pentagramma corrisponde al Do4 (diatonicStep 0)
             let centerY = height * 0.50
-            let lineSpacing: CGFloat = 18.0 // Distanza tra 2 righe adiacenti (ingrandita 2x)
-            let stepHeight: CGFloat = lineSpacing / 2.0 // Distanza tra riga e spazio adiacente (9.0pt)
+            let lineSpacing: CGFloat = 22.0 // Distanza tra 2 righe adiacenti (ingrandita 1.5x ulteriore)
+            let stepHeight: CGFloat = lineSpacing / 2.0 // Distanza tra riga e spazio adiacente (11.0pt)
+
+            // Posizionamento orizzontale delle due colonne
+            let xClef: CGFloat = 24.0
+            let xTarget: CGFloat = width * 0.52 // Colonna Note Proposte
+            let xPlayed: CGFloat = width * 0.82 // Colonna Note Suonate (distanza ~1.5 cm)
+
+            // Header delle Colonne
+            context.draw(
+                Text("PROPOSTE").font(.system(size: 8, weight: .bold)).foregroundColor(.orange),
+                at: CGPoint(x: xTarget, y: 12),
+                anchor: .center
+            )
+            context.draw(
+                Text("SUONATE").font(.system(size: 8, weight: .bold)).foregroundColor(.cyan),
+                at: CGPoint(x: xPlayed, y: 12),
+                anchor: .center
+            )
 
             // 1. Disegna le 5 righe del Pentagramma Superiore (Chiave di Violino)
             // Righe a diatonicStep: 2 (Mi4), 4 (Sol4), 6 (Si4), 8 (Re5), 10 (Fa5)
@@ -172,8 +200,8 @@ struct StaffCanvasView: View {
             // CHIAVE DI VIOLINO (Chiave di SOL): Il ricciolo centrale avvolge la 2ª riga dal basso (Sol4 = step 4)!
             let sol4Y = centerY - (CGFloat(4) * stepHeight)
             context.draw(
-                Text("🎼").font(.system(size: 38)),
-                at: CGPoint(x: 23, y: sol4Y - 3), // Allinea il centro del ricciolo su Sol4
+                Text("🎼").font(.system(size: 44)),
+                at: CGPoint(x: xClef, y: sol4Y - 3),
                 anchor: .center
             )
 
@@ -181,88 +209,90 @@ struct StaffCanvasView: View {
             // ed i 2 puntini si posizionano precisamente A CAVALLO della 4ª riga (nello spazio 3 e nello spazio 4)!
             let fa3Y = centerY - (CGFloat(-4) * stepHeight)
             context.draw(
-                Text("𝄢").font(.system(size: 30)),
-                at: CGPoint(x: 21, y: fa3Y + 1), // Posiziona il ricciolo della chiave di basso sulla 4ª riga
+                Text("𝄢").font(.system(size: 36)),
+                at: CGPoint(x: xClef - 2, y: fa3Y + 1),
                 anchor: .center
             )
 
             // Disegno vettoriale dei 2 puntini della Chiave di Basso a cavallo della 4ª riga (Fa3)
-            let upperDotY = centerY - (CGFloat(-3) * stepHeight) // Spazio sopra la 4ª riga (tra Fa3 e La3)
-            let lowerDotY = centerY - (CGFloat(-5) * stepHeight) // Spazio sotto la 4ª riga (tra Re3 e Fa3)
-            let dotX: CGFloat = 34.0
+            let upperDotY = centerY - (CGFloat(-3) * stepHeight)
+            let lowerDotY = centerY - (CGFloat(-5) * stepHeight)
+            let dotX: CGFloat = xClef + 15.0
 
             var dotPathUpper = Path()
-            dotPathUpper.addEllipse(in: CGRect(x: dotX - 1.8, y: upperDotY - 1.8, width: 3.6, height: 3.6))
+            dotPathUpper.addEllipse(in: CGRect(x: dotX - 2.0, y: upperDotY - 2.0, width: 4.0, height: 4.0))
             context.fill(dotPathUpper, with: .color(.white))
 
             var dotPathLower = Path()
-            dotPathLower.addEllipse(in: CGRect(x: dotX - 1.8, y: lowerDotY - 1.8, width: 3.6, height: 3.6))
+            dotPathLower.addEllipse(in: CGRect(x: dotX - 2.0, y: lowerDotY - 2.0, width: 4.0, height: 4.0))
             context.fill(dotPathLower, with: .color(.white))
 
             // -------------------------------------------------------------
-            // 3. DISEGNO DELLE NOTE ED I RELATIVI TAGLI ADDIZIONALI
+            // 3. FUNZIONE HELPER PER DISEGNARE LE NOTE E I TAGLI ADDIZIONALI
             // -------------------------------------------------------------
-            let noteX = width * 0.68
-            // Diametro verticale nota = esattamente 1/3 dello spazio tra 2 linee (lineSpacing / 3 = 6.0pt)
-            let noteHeight: CGFloat = lineSpacing / 3.0 // 6.0pt
-            let noteWidth: CGFloat = lineSpacing * 0.58 // 10.5pt
+            let noteHeight: CGFloat = lineSpacing / 3.0 // Exact 1/3 line spacing (7.33pt)
+            let noteWidth: CGFloat = lineSpacing * 0.58 // 12.7pt
 
-            for note in notesInfo {
-                let noteY = centerY - (CGFloat(note.diatonicStep) * stepHeight)
-                let noteColor: Color = note.isMatched ? .green : .primary
+            func drawNotes(_ notes: [GrandStaffView.StaffNoteInfo], atX noteX: CGFloat, defaultColor: Color) {
+                for note in notes {
+                    let noteY = centerY - (CGFloat(note.diatonicStep) * stepHeight)
+                    let noteColor: Color = note.isMatched ? .green : defaultColor
 
-                // 3a. Disegna i Tagli Addizionali (Ledger Lines)
-                // Do4 (step 0): Taglio addizionale centrale
-                if note.diatonicStep == 0 {
-                    var path = Path()
-                    path.move(to: CGPoint(x: noteX - 11, y: noteY))
-                    path.addLine(to: CGPoint(x: noteX + 11, y: noteY))
-                    context.stroke(path, with: .color(.white.opacity(0.8)), lineWidth: 1.4)
-                }
-                // Tagli superiori (sopra Fa5 / step > 10): righe a step pari 12, 14, 16, 18, 20, 22...
-                else if note.diatonicStep > 10 {
-                    let maxLedgerStep = (note.diatonicStep % 2 == 0) ? note.diatonicStep : (note.diatonicStep - 1)
-                    for s in stride(from: 12, through: maxLedgerStep, by: 2) {
-                        let ly = centerY - (CGFloat(s) * stepHeight)
+                    // 3a. Disegna i Tagli Addizionali (Ledger Lines estesi a tutta l'ampiezza delle 2 colonne)
+                    if note.diatonicStep == 0 {
                         var path = Path()
-                        path.move(to: CGPoint(x: noteX - 11, y: ly))
-                        path.addLine(to: CGPoint(x: noteX + 11, y: ly))
-                        context.stroke(path, with: .color(.white.opacity(0.8)), lineWidth: 1.4)
+                        path.move(to: CGPoint(x: noteX - 12, y: noteY))
+                        path.addLine(to: CGPoint(x: noteX + 12, y: noteY))
+                        context.stroke(path, with: .color(.white.opacity(0.85)), lineWidth: 1.4)
                     }
-                }
-                // Tagli inferiori (sotto Sol2 / step < -10): righe a step pari -12, -14, -16, -18, -20, -22...
-                else if note.diatonicStep < -10 {
-                    let minLedgerStep = (note.diatonicStep % 2 == 0) ? note.diatonicStep : (note.diatonicStep + 1)
-                    for s in stride(from: -12, through: minLedgerStep, by: -2) {
-                        let ly = centerY - (CGFloat(s) * stepHeight)
-                        var path = Path()
-                        path.move(to: CGPoint(x: noteX - 11, y: ly))
-                        path.addLine(to: CGPoint(x: noteX + 11, y: ly))
-                        context.stroke(path, with: .color(.white.opacity(0.8)), lineWidth: 1.4)
+                    else if note.diatonicStep > 10 {
+                        let maxLedgerStep = (note.diatonicStep % 2 == 0) ? note.diatonicStep : (note.diatonicStep - 1)
+                        for s in stride(from: 12, through: maxLedgerStep, by: 2) {
+                            let ly = centerY - (CGFloat(s) * stepHeight)
+                            var path = Path()
+                            path.move(to: CGPoint(x: noteX - 12, y: ly))
+                            path.addLine(to: CGPoint(x: noteX + 12, y: ly))
+                            context.stroke(path, with: .color(.white.opacity(0.85)), lineWidth: 1.4)
+                        }
                     }
-                }
+                    else if note.diatonicStep < -10 {
+                        let minLedgerStep = (note.diatonicStep % 2 == 0) ? note.diatonicStep : (note.diatonicStep + 1)
+                        for s in stride(from: -12, through: minLedgerStep, by: -2) {
+                            let ly = centerY - (CGFloat(s) * stepHeight)
+                            var path = Path()
+                            path.move(to: CGPoint(x: noteX - 11, y: ly))
+                            path.addLine(to: CGPoint(x: noteX + 11, y: ly))
+                            context.stroke(path, with: .color(.white.opacity(0.85)), lineWidth: 1.4)
+                        }
+                    }
 
-                // 3b. Disegna la Nota (Pallino nero pieno / verde se indovinato)
-                // Diametro verticale = 1/3 dello spazio tra 2 linee per impedire qualsiasi sovrapposizione tra note adiacenti
-                let noteRect = CGRect(
-                    x: noteX - (noteWidth / 2.0),
-                    y: noteY - (noteHeight / 2.0),
-                    width: noteWidth,
-                    height: noteHeight
-                )
-                let notePath = Path(ellipseIn: noteRect)
-                context.fill(notePath, with: .color(noteColor))
-                context.stroke(notePath, with: .color(.white.opacity(0.9)), lineWidth: 1.0)
-
-                // 3c. Disegna l'Alterazione (♯ o ♭) a sinistra della nota se presente
-                if let acc = note.accidental {
-                    context.draw(
-                        Text(acc).font(.system(size: 15, weight: .bold)).foregroundColor(noteColor),
-                        at: CGPoint(x: noteX - 17, y: noteY),
-                        anchor: .center
+                    // 3b. Disegna la Nota
+                    let noteRect = CGRect(
+                        x: noteX - (noteWidth / 2.0),
+                        y: noteY - (noteHeight / 2.0),
+                        width: noteWidth,
+                        height: noteHeight
                     )
+                    let notePath = Path(ellipseIn: noteRect)
+                    context.fill(notePath, with: .color(noteColor))
+                    context.stroke(notePath, with: .color(.white.opacity(0.9)), lineWidth: 1.1)
+
+                    // 3c. Disegna l'Alterazione (♯ o ♭) a sinistra della nota
+                    if let acc = note.accidental {
+                        context.draw(
+                            Text(acc).font(.system(size: 16, weight: .bold)).foregroundColor(noteColor),
+                            at: CGPoint(x: noteX - 18, y: noteY),
+                            anchor: .center
+                        )
+                    }
                 }
             }
+
+            // Disegna la Colonna 1: Note Proposte dal Mac (Orange / Black / Green)
+            drawNotes(targetNotesInfo, atX: xTarget, defaultColor: .orange)
+
+            // Disegna la Colonna 2: Note Suonate in Tempo Reale dall'Utente (Cyan / Green)
+            drawNotes(playedNotesInfo, atX: xPlayed, defaultColor: .cyan)
         }
     }
 }
