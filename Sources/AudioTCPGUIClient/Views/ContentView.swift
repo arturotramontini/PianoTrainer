@@ -350,6 +350,19 @@ struct ContentView: View {
 
     private var trainerOptionsBarView: some View {
         HStack(spacing: 12) {
+            // Flag 0: Escludi totalmente la voce
+            Toggle(isOn: $clientService.isVoiceMuted) {
+                HStack(spacing: 4) {
+                    Image(systemName: clientService.isVoiceMuted ? "speaker.slash.fill" : "speaker.wave.3.fill")
+                        .foregroundColor(clientService.isVoiceMuted ? .red : .purple)
+                    Text("Escludi totalmente la voce")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
+            }
+            .toggleStyle(.checkbox)
+            .help("Esclude totalmente qualsiasi messaggio vocale (note, accordi, suggerimenti, spartito)")
+
             // Flag 1: Pronuncia nota premuta
             Toggle(isOn: $clientService.speakPressedNotes) {
                 HStack(spacing: 4) {

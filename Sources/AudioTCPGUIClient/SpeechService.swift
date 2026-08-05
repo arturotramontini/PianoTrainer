@@ -6,6 +6,7 @@ import AVFoundation
 @MainActor
 final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
+    var isMuted: Bool = false
 
     override init() {
         super.init()
@@ -45,6 +46,13 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func speakText(_ text: String, languageCode: String = "en-US", interruptPrevious: Bool = true) {
+        guard !isMuted else {
+            if synthesizer.isSpeaking {
+                synthesizer.stopSpeaking(at: .immediate)
+            }
+            return
+        }
+
         if interruptPrevious && synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }

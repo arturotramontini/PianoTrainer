@@ -56,6 +56,11 @@ final class TCPClientService: ObservableObject {
             updateDisplayedNoteNames()
         }
     }
+    @Published var isVoiceMuted: Bool = false {
+        didSet {
+            speechService.isMuted = isVoiceMuted
+        }
+    }
     @Published var speakPressedNotes: Bool = false // Checkbox per la lettura vocale della nota premuta
     @Published var showKeyHints: Bool = false     // Checkbox per mostrare i rettangolini di suggerimento sui tasti target
     @Published var showOctaveGeometryHints: Bool = false // Checkbox per mostrare la geometria dell'accordo su tutte le ottave
