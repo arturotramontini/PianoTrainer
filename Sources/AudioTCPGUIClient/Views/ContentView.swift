@@ -481,7 +481,7 @@ struct ContentView: View {
                 HStack {
                     Image(systemName: "pianokeys")
                         .foregroundColor(.indigo)
-                    Text("Tastiera Pianoforte (C2 - C6)")
+                    Text(clientService.useItalianNotation ? "Tastiera Pianoforte (La0 - Do8)" : "Tastiera Pianoforte (A0 - C8)")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
