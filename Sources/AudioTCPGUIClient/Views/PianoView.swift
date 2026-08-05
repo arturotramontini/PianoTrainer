@@ -53,6 +53,29 @@ struct PianoView: View {
 
             let fixedIndicatorWidth = max(6.0, whiteKeyWidth * 0.35)
 
+            // Calcola le note target correnti in base alla modalità (Note Singole, Accordi, Spartito)
+            let targetMIDINotes: Set<UInt8> = {
+                if clientService.trainerMode == .singleNotes, let midi = clientService.targetNoteMIDI {
+                    return Set([midi])
+                } else if clientService.trainerMode == .chords, let chord = clientService.targetChord {
+                    return chord.notesMIDI
+                } else if clientService.trainerMode == .score, let result = clientService.scoreParseResult, clientService.currentScoreIndex < result.steps.count {
+                    return result.steps[clientService.currentScoreIndex].targetNotes
+                }
+                return Set<UInt8>()
+            }()
+
+            let isCurrentStepMatched: Bool = {
+                if clientService.trainerMode == .singleNotes {
+                    return clientService.lastPlayedIsTargetMatched
+                } else if clientService.trainerMode == .chords {
+                    return clientService.isChordMatched
+                } else if clientService.trainerMode == .score {
+                    return clientService.isScoreMatched
+                }
+                return false
+            }()
+
             // Calcola le classi di altezza (Pitch Classes 0..11) per la geometria dell'accordo o della tonalità su tutte le ottave
             let octavePitchClasses: Set<UInt8> = {
                 if clientService.trainerMode == .chords, let chord = clientService.targetChord {
@@ -63,6 +86,8 @@ struct PianoView: View {
                     }
                 } else if clientService.trainerMode == .singleNotes, let midi = clientService.targetNoteMIDI {
                     return Set([midi % 12])
+                } else if clientService.trainerMode == .score {
+                    return Set(targetMIDINotes.map { $0 % 12 })
                 }
                 return Set<UInt8>()
             }()
@@ -73,10 +98,8 @@ struct PianoView: View {
                     HStack(spacing: 1) {
                         ForEach(keys.filter { !$0.isBlack }) { key in
                             let isActive = clientService.isNoteActive(key.id)
-                            let isSingleMatched = (clientService.trainerMode == .singleNotes) && isActive && (key.id == clientService.targetNoteMIDI)
-                            let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
-                            let isMatched = isSingleMatched || isChordKeyMatched
-                            let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
+                            let isTargetKey = targetMIDINotes.contains(key.id)
+                            let isMatched = isActive && isTargetKey && isCurrentStepMatched
                             let isOctaveMatch = octavePitchClasses.contains(key.id % 12)
                             let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
                             
@@ -137,10 +160,8 @@ struct PianoView: View {
                     ForEach(keys.filter { $0.isBlack }) { key in
                         let xOffset = (CGFloat(key.whiteIndex + 1) * whiteKeyWidth) - (blackKeyWidth / 2.0)
                         let isActive = clientService.isNoteActive(key.id)
-                        let isSingleMatched = (clientService.trainerMode == .singleNotes) && isActive && (key.id == clientService.targetNoteMIDI)
-                        let isChordKeyMatched = (clientService.trainerMode == .chords) && isActive && (clientService.targetChord?.notesMIDI.contains(key.id) == true) && clientService.isChordMatched
-                        let isMatched = isSingleMatched || isChordKeyMatched
-                        let isTargetKey = (clientService.trainerMode == .singleNotes && key.id == clientService.targetNoteMIDI) || (clientService.trainerMode == .chords && clientService.targetChord?.notesMIDI.contains(key.id) == true)
+                        let isTargetKey = targetMIDINotes.contains(key.id)
+                        let isMatched = isActive && isTargetKey && isCurrentStepMatched
                         let isOctaveMatch = octavePitchClasses.contains(key.id % 12)
                         let label = NoteNameUtility.dualName(for: key.id, isItalian: clientService.useItalianNotation)
 

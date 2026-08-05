@@ -20,8 +20,34 @@ final class TCPClientService: ObservableObject {
     public enum TrainerMode: String, CaseIterable, Identifiable {
         case singleNotes = "Note Singole"
         case chords = "Accordi & Rivolti"
+        case score = "📜 Spartito BUILDMIDI"
 
         public var id: String { rawValue }
+    }
+
+    // Modalità Spartito BUILDMIDI
+    @Published var scoreParseResult: ScoreParseResult? = nil
+    @Published var currentScoreIndex: Int = 0
+    @Published var scoreText: String = ""
+    @Published var scoreFileName: String = "Nessun file"
+    @Published var isScoreMatched: Bool = false
+    @Published var isScoreAutoPlaying: Bool = false
+
+    func addLog(_ message: String, isError: Bool = false, isOutgoing: Bool = false) {
+        let entry = LogEntry(message: message, isError: isError, isOutgoing: isOutgoing)
+        logEntries.append(entry)
+        if logEntries.count > 100 {
+            logEntries.removeFirst(logEntries.count - 100)
+        }
+    }
+
+    func setSF2Program(_ program: UInt8) {
+        sf2Program = program
+        sendRawCommand("program \(program)")
+    }
+
+    func refreshStatus() {
+        sendRawCommand("status")
     }
 
     // Piano Trainer & Speech Assistant
@@ -337,6 +363,28 @@ final class TCPClientService: ObservableObject {
                 }
             }
         }
+
+        // MODALITÀ SPARTITO BUILDMIDI: Avanzamento interattivo nota per nota
+        if trainerMode == .score, let result = scoreParseResult, currentScoreIndex < result.steps.count {
+            let currentStep = result.steps[currentScoreIndex]
+            let isExactMatch = (activeNotes == currentStep.targetNotes)
+
+            if isExactMatch {
+                if !isScoreMatched {
+                    isScoreMatched = true
+                    speechService.speak(text: "Ottimo!")
+                    addLog("Piano Trainer: Passo Spartito Riuscito [Battuta \(currentStep.bar)] -> \(currentStep.displayText)", isError: false)
+
+                    // Avanzamento automatico dopo 0.35s al passo successivo del brano
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                        guard let self = self else { return }
+                        self.nextScoreStep()
+                    }
+                }
+            } else {
+                isScoreMatched = false
+            }
+        }
     }
 
     /// Aggiorna i testi visualizzati quando si passa da notazione inglese ad italiana o viceversa.
@@ -453,20 +501,72 @@ final class TCPClientService: ObservableObject {
         addLog("Piano Trainer: Accordo Manuale Impostato -> \(targetChordText) [\(result.scaleMode.rawValue)]", isError: false)
     }
 
-    func setSF2Program(_ program: UInt8) {
-        sf2Program = program
-        sendRawCommand("program \(program)")
+    /// Carica ed analizza il testo di uno spartito in formato BUILDMIDI
+    func loadScoreFromText(_ text: String, fileName: String = "Spartito Testo") {
+        self.scoreText = text
+        self.scoreFileName = fileName
+        let result = BuildMidiParser.parse(text: text, title: fileName)
+        self.scoreParseResult = result
+        self.currentScoreIndex = 0
+        self.isScoreMatched = false
+        addLog("Piano Trainer: Caricato spartito '\(fileName)' con \(result.steps.count) passi e \(result.totalBars) battute", isError: false)
     }
 
-    func refreshStatus() {
-        sendRawCommand("status")
+    /// Avanza al passo successivo dello spartito
+    func nextScoreStep() {
+        guard let result = scoreParseResult else { return }
+        if currentScoreIndex + 1 < result.steps.count {
+            currentScoreIndex += 1
+            isScoreMatched = false
+            let step = result.steps[currentScoreIndex]
+            addLog("Piano Trainer: Avanzamento -> Battuta \(step.bar) (\(step.displayText))", isError: false)
+        } else {
+            speechService.speak(text: "Complimenti! Brano completato!")
+            addLog("Piano Trainer: 🎉 Brano completato!", isError: false)
+        }
     }
 
-    private func addLog(_ message: String, isError: Bool = false, isOutgoing: Bool = false) {
-        let entry = LogEntry(message: message, isError: isError, isOutgoing: isOutgoing)
-        logEntries.append(entry)
-        if logEntries.count > 100 {
-            logEntries.removeFirst(logEntries.count - 100)
+    /// Torna al passo precedente dello spartito
+    func previousScoreStep() {
+        guard scoreParseResult != nil else { return }
+        if currentScoreIndex > 0 {
+            currentScoreIndex -= 1
+            isScoreMatched = false
+        }
+    }
+
+    /// Avvia o mette in pausa la riproduzione automatica del brano
+    func toggleScoreAutoPlay() {
+        isScoreAutoPlaying.toggle()
+        if isScoreAutoPlaying {
+            playNextAutoScoreStep()
+        }
+    }
+
+    private func playNextAutoScoreStep() {
+        guard isScoreAutoPlaying, let result = scoreParseResult, currentScoreIndex < result.steps.count else {
+            isScoreAutoPlaying = false
+            return
+        }
+
+        let step = result.steps[currentScoreIndex]
+        for note in step.targetNotes {
+            sendNoteOn(midi: note, velocity: 100)
+        }
+
+        let stepDurationSeconds = max(0.2, (Double(step.durationTicks) / 480.0) * (60.0 / Double(result.bpm)))
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + stepDurationSeconds) { [weak self] in
+            guard let self = self, self.isScoreAutoPlaying else { return }
+            for note in step.targetNotes {
+                self.sendNoteOff(midi: note)
+            }
+            if self.currentScoreIndex + 1 < result.steps.count {
+                self.currentScoreIndex += 1
+                self.playNextAutoScoreStep()
+            } else {
+                self.isScoreAutoPlaying = false
+            }
         }
     }
 

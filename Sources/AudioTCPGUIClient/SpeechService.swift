@@ -39,6 +39,11 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
         speakText(promptText, languageCode: isItalian ? "it-IT" : "en-US", interruptPrevious: true)
     }
 
+    /// Pronuncia un testo generico a voce (es: per incoraggiamento o spartito)
+    func speak(text: String, isItalian: Bool = true) {
+        speakText(text, languageCode: isItalian ? "it-IT" : "en-US", interruptPrevious: true)
+    }
+
     private func speakText(_ text: String, languageCode: String = "en-US", interruptPrevious: Bool = true) {
         if interruptPrevious && synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
