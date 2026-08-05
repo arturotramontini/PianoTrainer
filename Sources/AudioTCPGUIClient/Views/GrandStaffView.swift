@@ -4,9 +4,10 @@ import SwiftUI
 /// Visualizza Chiave di Violino (Treble Clef su Sol4) e Chiave di Basso (Bass Clef su Fa3 con puntini a cavallo della 4ª riga)
 /// con tagli addizionali automatici per l'intera estensione del pianoforte (A0 ... C8).
 ///
-/// MOSTRA 2 COLONNE CON SOTTO-COLONNE SEPARATE PER NOTE NATURALI ED ALTERATE:
-/// 1. Colonna Sinistra (PROPOSTE): Note Naturali su xBaseTarget, Note Alterate traslate a sinistra di 5mm (~15pt)
-/// 2. Colonna Destra (SUONATE): Note Naturali su xBasePlayed, Note Alterate traslate a sinistra di 5mm (~15pt)
+/// CARATTERISTICHE:
+/// 1. Centratura perfetta del sistema sul contenitore di sfondo (altezza ottimizzata a 620pt).
+/// 2. Due Colonne (PROPOSTE vs SUONATE) con sotto-colonna traslata a sinistra di 5mm (~15pt) per le note alterate (♯ / ♭).
+/// 3. Marcatori delle note Do/C per ogni ottava (C1 ... C8) disegnati sul bordo destro in corrispondenza della loro posizione verticale.
 struct GrandStaffView: View {
     @ObservedObject var clientService: TCPClientService
 
@@ -35,16 +36,20 @@ struct GrandStaffView: View {
             }
 
             ZStack {
-                // Sfondo rettangolare scuro ingrandito in altezza per contenere completamente A0 e C8
+                // Sfondo rettangolare scuro accorciato e centrato (height: 620)
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color.black.opacity(0.18))
 
-                // Canvas di disegno vettoriale del pentagramma (2 colonne con sotto-colonna alterata a sinistra di 5mm)
-                StaffCanvasView(targetNotesInfo: targetNotesInfo, playedNotesInfo: playedNotesInfo)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 10)
+                // Canvas di disegno vettoriale del pentagramma
+                StaffCanvasView(
+                    targetNotesInfo: targetNotesInfo,
+                    playedNotesInfo: playedNotesInfo,
+                    useItalianNotation: clientService.useItalianNotation
+                )
+                .padding(.horizontal, 6)
+                .padding(.vertical, 8)
             }
-            .frame(width: 250, height: 680)
+            .frame(width: 270, height: 620)
         }
     }
 
@@ -137,27 +142,28 @@ struct GrandStaffView: View {
     }
 }
 
-/// Canvas di disegno vettoriale a 2 COLONNE con sotto-colonne separate per note naturali ed alterate (traslate di 5mm a sinistra):
-/// - Colonna 1 (xBaseTarget): Note Proposte dal Mac
-/// - Colonna 2 (xBasePlayed): Note Suonate in Tempo Reale sulla Tastiera MIDI
+/// Canvas di disegno vettoriale a 2 COLONNE con sotto-colonne separate per note naturali ed alterate,
+/// e marcatori verticali delle note Do (C1 ... C8) sul bordo destro del pentagramma.
 struct StaffCanvasView: View {
     let targetNotesInfo: [GrandStaffView.StaffNoteInfo]
     let playedNotesInfo: [GrandStaffView.StaffNoteInfo]
+    let useItalianNotation: Bool
 
     var body: some View {
         Canvas { context, size in
             let width = size.width
             let height = size.height
 
-            // Centro del pentagramma corrisponde al Do4 (diatonicStep 0)
-            let centerY = height * 0.51
+            // Centro del pentagramma (Do4 / diatonicStep 0) bilanciato per centrare l'intero sistema A0-C8 nel rettangolo 620pt
+            let centerY = height * 0.54
             let lineSpacing: CGFloat = 22.0 // Distanza tra 2 righe adiacenti
             let stepHeight: CGFloat = lineSpacing / 2.0 // Distanza tra riga e spazio adiacente (11.0pt)
 
-            // Posizionamento orizzontale delle due colonne base
+            // Posizionamento orizzontale delle colonne
             let xClef: CGFloat = 24.0
-            let xBaseTarget: CGFloat = width * 0.46 // Base Colonna Note Proposte
-            let xBasePlayed: CGFloat = width * 0.82 // Base Colonna Note Suonate (distanza ~1.5 cm)
+            let xBaseTarget: CGFloat = width * 0.42 // Base Colonna Note Proposte
+            let xBasePlayed: CGFloat = width * 0.74 // Base Colonna Note Suonate
+            let xOctaveLabel: CGFloat = width - 18.0 // Bordo destro per le etichette delle note Do+ottava
 
             // Header delle Colonne
             context.draw(
@@ -178,7 +184,7 @@ struct StaffCanvasView: View {
                 let y = centerY - (CGFloat(step) * stepHeight)
                 var path = Path()
                 path.move(to: CGPoint(x: 10, y: y))
-                path.addLine(to: CGPoint(x: width - 10, y: y))
+                path.addLine(to: CGPoint(x: width - 35, y: y))
                 context.stroke(path, with: .color(.white.opacity(0.45)), lineWidth: 1.2)
             }
 
@@ -189,7 +195,7 @@ struct StaffCanvasView: View {
                 let y = centerY - (CGFloat(step) * stepHeight)
                 var path = Path()
                 path.move(to: CGPoint(x: 10, y: y))
-                path.addLine(to: CGPoint(x: width - 10, y: y))
+                path.addLine(to: CGPoint(x: width - 35, y: y))
                 context.stroke(path, with: .color(.white.opacity(0.45)), lineWidth: 1.2)
             }
 
@@ -226,6 +232,24 @@ struct StaffCanvasView: View {
             var dotPathLower = Path()
             dotPathLower.addEllipse(in: CGRect(x: dotX - 2.0, y: lowerDotY - 2.0, width: 4.0, height: 4.0))
             context.fill(dotPathLower, with: .color(.white))
+
+            // -------------------------------------------------------------
+            // ETICHETTE VERTICALI DELLE NOTE DO + OTTAVA (C1 ... C8) SUL BORDO DESTRO
+            // -------------------------------------------------------------
+            for octave in 1...8 {
+                let diatonicStep = (octave * 7) - 28 // Do4 (C4) = step 0
+                let cY = centerY - (CGFloat(diatonicStep) * stepHeight)
+                let labelText = useItalianNotation ? "Do\(octave)" : "C\(octave)"
+                let isMiddleC = (octave == 4)
+
+                context.draw(
+                    Text(labelText)
+                        .font(.system(size: isMiddleC ? 10 : 9, weight: isMiddleC ? .bold : .semibold))
+                        .foregroundColor(isMiddleC ? .orange : .white.opacity(0.7)),
+                    at: CGPoint(x: xOctaveLabel, y: cY),
+                    anchor: .center
+                )
+            }
 
             // -------------------------------------------------------------
             // 3. FUNZIONE HELPER PER DISEGNARE LE NOTE CON SOTTO-COLONNA ALTERATA (5mm a sinistra)
