@@ -4,14 +4,20 @@ public struct ScoreStep: Identifiable, Equatable {
     public let id = UUID()
     public let bar: Int
     public let stepIndex: Int
+    public let track: Int
+    public let startPosToken: String
+    public let durationToken: String
     public let targetNotes: Set<UInt8>
     public let durationTicks: Int
     public let displayText: String
     public let phoneticText: String
 
-    public init(bar: Int, stepIndex: Int, targetNotes: Set<UInt8>, durationTicks: Int, displayText: String, phoneticText: String) {
+    public init(bar: Int, stepIndex: Int, track: Int, startPosToken: String, durationToken: String, targetNotes: Set<UInt8>, durationTicks: Int, displayText: String, phoneticText: String) {
         self.bar = bar
         self.stepIndex = stepIndex
+        self.track = track
+        self.startPosToken = startPosToken
+        self.durationToken = durationToken
         self.targetNotes = targetNotes
         self.durationTicks = durationTicks
         self.displayText = displayText
@@ -63,6 +69,7 @@ public struct BuildMidiParser {
 
         var steps: [ScoreStep] = []
         var currentBar = 1
+        var currentTrack = 1
         var currentBPM = 120
         var stepCount = 0
         var prevDurationTicks = 480 // 1/4 quarter note default
@@ -93,6 +100,13 @@ public struct BuildMidiParser {
                 continue
             }
 
+            if cmd == "traccia" || cmd == "track" {
+                if tokens.count > 1, let t = Int(tokens[1]) {
+                    currentTrack = t
+                }
+                continue
+            }
+
             if cmd == "bpm" {
                 if tokens.count > 1, let b = Int(tokens[1]) {
                     currentBPM = b
@@ -100,12 +114,13 @@ public struct BuildMidiParser {
                 continue
             }
 
-            if cmd == "comment" || cmd == "com" || cmd == "commento" || cmd == "direct" || cmd == "traccia" || cmd == "track" || cmd == "canale" || cmd == "channel" || cmd == "vel" || cmd == "velocity" || cmd == "delayarp" {
+            if cmd == "comment" || cmd == "com" || cmd == "commento" || cmd == "direct" || cmd == "canale" || cmd == "channel" || cmd == "vel" || cmd == "velocity" || cmd == "delayarp" {
                 continue
             }
 
             // Parsing righe note: <start> <duration> <note> <octave> [<note> <octave> ...]
             if tokens.count >= 3 {
+                let startPosToken = tokens[0]
                 let durToken = tokens[1].lowercased()
 
                 // Calcola durTicks
@@ -168,12 +183,15 @@ public struct BuildMidiParser {
 
                 if !targetMIDI.isEmpty {
                     stepCount += 1
-                    let displayText = "Battuta \(currentBar) - " + noteNames.joined(separator: ", ")
+                    let displayText = "Traccia \(currentTrack) - Battuta \(currentBar) [Pos: \(startPosToken)] - " + noteNames.joined(separator: ", ")
                     let phoneticText = noteNames.joined(separator: ", ")
                     
                     let step = ScoreStep(
                         bar: currentBar,
                         stepIndex: stepCount,
+                        track: currentTrack,
+                        startPosToken: startPosToken,
+                        durationToken: durToken,
                         targetNotes: targetMIDI,
                         durationTicks: durTicks,
                         displayText: displayText,

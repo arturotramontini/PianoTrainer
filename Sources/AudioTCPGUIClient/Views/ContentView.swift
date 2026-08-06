@@ -311,21 +311,28 @@ struct ContentView: View {
             } else if service.trainerMode == .score {
                 HStack(spacing: 6) {
                     Button(action: {
+                        service.firstScoreStep()
+                    }) {
+                        Label("Inizio", systemImage: "backward.end.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Vai all'inizio del brano (Passo 1, Battuta 1)")
+
+                    Button(action: {
+                        service.previousScoreBar()
+                    }) {
+                        Label("Battuta", systemImage: "gobackward")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Indietro una battuta")
+
+                    Button(action: {
                         service.previousScoreStep()
                     }) {
                         Image(systemName: "backward.fill")
                     }
                     .buttonStyle(.bordered)
-                    .help("Passo Precedente")
-
-                    Button(action: {
-                        service.toggleScoreAutoPlay()
-                    }) {
-                        Label(service.isScoreAutoPlaying ? "Pausa" : "Play Brano", systemImage: service.isScoreAutoPlaying ? "pause.fill" : "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(service.isScoreAutoPlaying ? .orange : .green)
-                    .help("Riproduci o Metti in Pausa l'esecuzione del brano")
+                    .help("Indietro una nota")
 
                     Button(action: {
                         service.nextScoreStep()
@@ -333,7 +340,15 @@ struct ContentView: View {
                         Image(systemName: "forward.fill")
                     }
                     .buttonStyle(.bordered)
-                    .help("Passo Successivo")
+                    .help("Avanti una nota")
+
+                    Button(action: {
+                        service.nextScoreBar()
+                    }) {
+                        Label("Battuta", systemImage: "goforward")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Avanti una battuta")
 
                     Button(action: {
                         service.exportScoreToMidiAndPDF()
@@ -456,9 +471,43 @@ struct ContentView: View {
             if isScore {
                 if let result = clientService.scoreParseResult, clientService.currentScoreIndex < result.steps.count {
                     let step = result.steps[clientService.currentScoreIndex]
-                    Text(step.displayText)
-                        .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundColor(.blue)
+                    let isIt = clientService.useItalianNotation
+                    let noteList = step.targetNotes.sorted().map {
+                        isIt ? NoteNameUtility.italianName(for: $0) : NoteNameUtility.englishName(for: $0)
+                    }.joined(separator: ", ")
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Text("Traccia \(step.track) • Battuta \(step.bar)")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(.blue)
+
+                            Text("Pos: \(step.startPosToken) (dur. \(step.durationToken))")
+                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.purple)
+                        }
+
+                        HStack(spacing: 6) {
+                            Text("NOTE:")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+
+                            Text(noteList)
+                                .font(.system(size: 20, weight: .black, design: .rounded))
+                                .foregroundColor(.blue)
+                        }
+
+                        if clientService.waitingForScoreRelease {
+                            HStack(spacing: 4) {
+                                Image(systemName: "hand.tap.fill")
+                                Text("Tasti Premuti! Rilascia tutti i tasti per avanzare")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                            }
+                            .foregroundColor(.green)
+                        }
+                    }
                 } else {
                     Text("Nessun brano caricato - Clicca 'Apri File Spartito'")
                         .font(.system(size: 16, weight: .bold, design: .rounded))

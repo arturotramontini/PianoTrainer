@@ -369,7 +369,7 @@ final class TCPClientService: ObservableObject {
             }
         }
 
-        // MODALITÀ SPARTITO BUILDMIDI: Avanzamento interattivo nota per nota
+        // MODALITÀ SPARTITO BUILDMIDI: Avanzamento interattivo nota per nota (Pressione + Rilascio Completo)
         if trainerMode == .score, let result = scoreParseResult, currentScoreIndex < result.steps.count {
             let currentStep = result.steps[currentScoreIndex]
             let isExactMatch = (activeNotes == currentStep.targetNotes)
@@ -377,19 +377,20 @@ final class TCPClientService: ObservableObject {
             if isExactMatch {
                 if !isScoreMatched {
                     isScoreMatched = true
-                    if speakPressedNotes {
-                        speechService.speak(text: "Ottimo!")
-                    }
-                    addLog("Piano Trainer: Passo Spartito Riuscito [Battuta \(currentStep.bar)] -> \(currentStep.displayText)", isError: false)
-
-                    // Avanzamento automatico dopo 0.35s al passo successivo del brano
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                        guard let self = self else { return }
-                        self.nextScoreStep()
-                    }
+                    waitingForScoreRelease = true
+                    addLog("Piano Trainer: Passo Spartito Raggiunto! [Traccia \(currentStep.track), Battuta \(currentStep.bar), Pos \(currentStep.startPosToken)]. Rilascia i tasti per avanzare.", isError: false)
                 }
             } else {
                 isScoreMatched = false
+            }
+
+            // Avanzamento automatico al completo rilascio di tutti i tasti
+            if activeNotes.isEmpty && waitingForScoreRelease {
+                waitingForScoreRelease = false
+                if speakPressedNotes {
+                    speechService.speak(text: "Ottimo!")
+                }
+                nextScoreStep()
             }
         }
     }
@@ -519,14 +520,26 @@ final class TCPClientService: ObservableObject {
         addLog("Piano Trainer: Caricato spartito '\(fileName)' con \(result.steps.count) passi e \(result.totalBars) battute", isError: false)
     }
 
-    /// Avanza al passo successivo dello spartito
+    @Published var waitingForScoreRelease: Bool = false
+
+    /// Torna al primo passo del brano (Inizio)
+    func firstScoreStep() {
+        guard scoreParseResult != nil else { return }
+        currentScoreIndex = 0
+        isScoreMatched = false
+        waitingForScoreRelease = false
+        addLog("Piano Trainer: Riposizionato all'inizio del brano (Battuta 1)", isError: false)
+    }
+
+    /// Avanza al passo/nota successiva dello spartito
     func nextScoreStep() {
         guard let result = scoreParseResult else { return }
         if currentScoreIndex + 1 < result.steps.count {
             currentScoreIndex += 1
             isScoreMatched = false
+            waitingForScoreRelease = false
             let step = result.steps[currentScoreIndex]
-            addLog("Piano Trainer: Avanzamento -> Battuta \(step.bar) (\(step.displayText))", isError: false)
+            addLog("Piano Trainer: Avanzamento -> Traccia \(step.track), Battuta \(step.bar) [Pos: \(step.startPosToken)]", isError: false)
         } else {
             if speakPressedNotes {
                 speechService.speak(text: "Complimenti! Brano completato!")
@@ -535,47 +548,53 @@ final class TCPClientService: ObservableObject {
         }
     }
 
-    /// Torna al passo precedente dello spartito
+    /// Torna al passo/nota precedente dello spartito
     func previousScoreStep() {
         guard scoreParseResult != nil else { return }
         if currentScoreIndex > 0 {
             currentScoreIndex -= 1
             isScoreMatched = false
+            waitingForScoreRelease = false
         }
     }
 
-    /// Avvia o mette in pausa la riproduzione automatica del brano
-    func toggleScoreAutoPlay() {
-        isScoreAutoPlaying.toggle()
-        if isScoreAutoPlaying {
-            playNextAutoScoreStep()
-        }
-    }
+    /// Torna al primo passo della battuta precedente (o all'inizio della battuta corrente se a metà)
+    func previousScoreBar() {
+        guard let result = scoreParseResult, currentScoreIndex < result.steps.count else { return }
+        let currentBar = result.steps[currentScoreIndex].bar
+        
+        let firstStepOfCurrentBar = result.steps.firstIndex(where: { $0.bar == currentBar }) ?? 0
 
-    private func playNextAutoScoreStep() {
-        guard isScoreAutoPlaying, let result = scoreParseResult, currentScoreIndex < result.steps.count else {
-            isScoreAutoPlaying = false
-            return
+        if currentScoreIndex > firstStepOfCurrentBar {
+            currentScoreIndex = firstStepOfCurrentBar
+        } else {
+            let prevBarTarget = max(1, currentBar - 1)
+            if let firstStepOfPrevBar = result.steps.firstIndex(where: { $0.bar == prevBarTarget }) {
+                currentScoreIndex = firstStepOfPrevBar
+            }
         }
-
+        isScoreMatched = false
+        waitingForScoreRelease = false
         let step = result.steps[currentScoreIndex]
-        for note in step.targetNotes {
-            sendNoteOn(midi: note, velocity: 100)
-        }
+        addLog("Piano Trainer: Posizionato a Battuta \(step.bar)", isError: false)
+    }
 
-        let stepDurationSeconds = max(0.2, (Double(step.durationTicks) / 480.0) * (60.0 / Double(result.bpm)))
+    /// Avanza al primo passo della battuta successiva
+    func nextScoreBar() {
+        guard let result = scoreParseResult, currentScoreIndex < result.steps.count else { return }
+        let currentBar = result.steps[currentScoreIndex].bar
+        let nextBarTarget = currentBar + 1
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + stepDurationSeconds) { [weak self] in
-            guard let self = self, self.isScoreAutoPlaying else { return }
-            for note in step.targetNotes {
-                self.sendNoteOff(midi: note)
-            }
-            if self.currentScoreIndex + 1 < result.steps.count {
-                self.currentScoreIndex += 1
-                self.playNextAutoScoreStep()
-            } else {
-                self.isScoreAutoPlaying = false
-            }
+        if let firstStepOfNextBar = result.steps.firstIndex(where: { $0.bar == nextBarTarget }) {
+            currentScoreIndex = firstStepOfNextBar
+            isScoreMatched = false
+            waitingForScoreRelease = false
+            let step = result.steps[currentScoreIndex]
+            addLog("Piano Trainer: Avanzamento a Battuta \(step.bar)", isError: false)
+        } else if let lastStepIndex = result.steps.indices.last {
+            currentScoreIndex = lastStepIndex
+            isScoreMatched = false
+            waitingForScoreRelease = false
         }
     }
 
