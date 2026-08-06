@@ -8,6 +8,7 @@ extension Collection {
 }
 
 /// Generator for Standard MIDI Files (.mid) from BUILDMIDI text score format.
+/// 100% compatibile con la sintassi ed i risultati del progetto BUILDMIDI_2.
 public enum BuildMidiGenerator {
 
     public struct Event {
@@ -42,6 +43,51 @@ public enum BuildMidiGenerator {
             "g": 7, "g#": 8,
             "a": 9, "a#": 10,
             "b": 11, "bb": 10
+        ]
+
+        let drumName: [Int: String] = [
+            45: "BD 45 (A1): Low Tom",
+            43: "BD 43 (G1): High Floor Tom",
+            41: "BD 41 (F1): Low Floor Tom",
+            36: "BD 36 (C1): Bass Drum 1",
+            35: "BD 35 (B0): Acoustic Bass Drum",
+            37: "SH 37 (C#1): Side Stick",
+            39: "SH 39 (Eb1): Hand Clap",
+            40: "SH 40 (E1): Electric Snare",
+            38: "SH 38 (D1): Acoustic Snare",
+            59: "HH 59 (B2): Ride Cymbal 2",
+            51: "HH 51 (Eb2): Ride Cymbal 1",
+            57: "HH 57 (A2): Crash Cymbal 2",
+            49: "HH 49 (C#2): Crash Cymbal 1",
+            46: "HH 46 (Bb1): Open Hi-Hat",
+            44: "HH 44 (Ab1): Pedal Hi-Hat",
+            42: "HH 42 (F#1): Closed Hi-Hat",
+            66: "LP 66 (F#3): Low Timbale",
+            65: "LP 65 (F3): High Timbale",
+            64: "LP 64 (E3): Low Conga",
+            63: "LP 63 (Eb3): Open Hi Conga",
+            62: "LP 62 (D3): Mute Hi Conga",
+            61: "LP 61 (C#3): Low Bongo",
+            60: "LP 60 (C3): Hi Bongo",
+            80: "OE 80 (Ab4): Mute Triangle",
+            79: "OE 79 (G4): Open Cuica",
+            78: "OE 78 (F#4): Mute Cuica",
+            77: "OE 77 (F4): Low Wood Block",
+            76: "OE 76 (E4): Hi Wood Block",
+            75: "OE 75 (Eb4): Claves",
+            74: "OE 74 (D4): Long Guiro",
+            73: "OE 73 (C#4): Short Guiro",
+            72: "OE 72 (C4): Long Whistle",
+            71: "OE 71 (B3): Short Whistle",
+            70: "OE 70 (Bb3): Maracas",
+            58: "OE 58 (Bb2): Vibraslap",
+            56: "OE 56 (Ab2): Cowbell",
+            55: "OE 55 (G2): Splash Cymbal"
+        ]
+
+        let velMap: [Character: Int] = [
+            "0": 0, "1": 1, "2": 2, "3": 3, "4": 4,
+            "5": 5, "6": 6, "7": 7, "8": 8, "9": 9
         ]
 
         var startTick = 0
@@ -230,9 +276,144 @@ public enum BuildMidiGenerator {
                 skipAllFlag = true
                 return true
             }
+            if handleDrumCommand(fields) { return true }
             if handleGlobalStateCommand(fields, startF: &startF) { return true }
             if handleMetaCommand(fields) { return true }
             return false
+        }
+
+        private func handleDrumCommand(_ fields: [String]) -> Bool {
+            if ["d_division", "d_div", "ddiv"].contains(fields[0]) {
+                divisions = Double(fields[safe: 1] ?? "") ?? 4.0
+                drum_ticks = Int(divisions)
+                return true
+            }
+
+            if fields[0] == "offset" {
+                divisions = Double(fields[safe: 1] ?? "") ?? 0.0
+                return true
+            }
+
+            if fields[0] == "drum" {
+                drum_type = Int(fields[safe: 1] ?? "") ?? 60
+                return true
+            }
+
+            if fields[0] == "dmsetadd" {
+                if let name = fields[safe: 1] {
+                    for value in fields.dropFirst(2) {
+                        mappa[name, default: []].append(value)
+                    }
+                }
+                return true
+            }
+
+            if ["d_map_set", "dmset", "d_def_index_instruments"].contains(fields[0]) {
+                if let name = fields[safe: 1] {
+                    mappa[name] = []
+                    for value in fields.dropFirst(2) {
+                        mappa[name, default: []].append(value)
+                    }
+                }
+                return true
+            }
+
+            if ["dmap", "dm", "d_get_index_instruments"].contains(fields[0]) {
+                instruments = []
+                let index = fields.count >= 2 ? fields[1] : "60"
+                let values = mappa[index] ?? []
+                for value in values {
+                    if let parsed = Int(value) {
+                        instruments.append(parsed)
+                    }
+                }
+                return true
+            }
+
+            if ["dstart", "ds", "d_beat_start"].contains(fields[0]), let mask = fields[safe: 1] {
+                var pos = 0
+                var value = ticksPerBar / 2
+                for ch in mask {
+                    if ch == "1" { pos += value }
+                    value /= 2
+                }
+                drumStart = battuta * ticksPerBar + pos
+                return true
+            }
+
+            if ["dbr", "dbrepeats"].contains(fields[0]) {
+                drumBarRepeats = Int(fields[safe: 1] ?? "") ?? 1
+                return true
+            }
+
+            if fields[0] == "d" {
+                handleDrum(fields)
+                return true
+            }
+
+            return false
+        }
+
+        private func handleDrum(_ fields: [String]) {
+            var ps = ""
+            var drum = drum_type
+            var dmode = 0
+
+            for (index, value) in fields.enumerated() {
+                if index == 1, value.first == "p" {
+                    dmode = 1
+                    drum = Int(value.dropFirst()) ?? 61
+                    drum_type = drum
+                    instruments = [drum]
+                    continue
+                }
+                if index > dmode {
+                    ps.append(contentsOf: value)
+                }
+            }
+
+            let start = drumStart
+
+            for (idx, val) in ps.enumerated() {
+                let s1 = start + idx * ticksPerBar / max(drum_ticks, 1)
+                drumStart = s1
+                let velo = Int(velocity)
+                let start1 = s1
+                let end1 = start1 + 24
+
+                for n in 0..<max(drumBarRepeats, 0) {
+                    let sr = start1 + n * ticksPerBar
+                    let er = end1 + n * ticksPerBar
+
+                    if val == "-" {
+                        for instrument in instruments {
+                            events.append(Event(tick: sr, track: 10, kind: 1, pitch: instrument, vel: velo, canale: 9, text: "aa", data: []))
+                            events.append(Event(tick: er, track: 10, kind: 0, pitch: instrument, vel: 0, canale: 9, text: "bb", data: []))
+                        }
+                    }
+
+                    if val == "." {
+                        for instrument in instruments {
+                            events.append(Event(tick: sr, track: 10, kind: 1, pitch: instrument, vel: 0, canale: 9, text: "aa", data: []))
+                            events.append(Event(tick: er, track: 10, kind: 0, pitch: instrument, vel: 0, canale: 9, text: "bb", data: []))
+                        }
+                    }
+                }
+
+                if let mapValue = velMap[val] {
+                    let scaled = Double(Int(velocity)) * (Double(mapValue) / 9.0)
+                    for n in 0..<max(drumBarRepeats, 0) {
+                        let sr = start1 + n * ticksPerBar
+                        let er = end1 + n * ticksPerBar
+                        for instrument in instruments {
+                            events.append(Event(tick: sr, track: 10, kind: 1, pitch: instrument, vel: Int(scaled), canale: 9, text: "aa", data: []))
+                            events.append(Event(tick: er, track: 10, kind: 0, pitch: instrument, vel: 0, canale: 9, text: "bb", data: []))
+                        }
+                    }
+                }
+            }
+
+            drumStart += ticksPerBar / max(drum_ticks, 1)
         }
 
         private func handleGlobalStateCommand(_ fields: [String], startF: inout Double) -> Bool {
@@ -375,23 +556,89 @@ public enum BuildMidiGenerator {
         }
 
         private func handlePitchedNotes(_ fields: [String], durF: Double) {
-            var note: [Int] = []
-            var nota = 0
-
-            for token in fields.dropFirst(2) {
-                if token.first == "#" { break }
-                let (pitchName, oct) = parseNoteToken(token)
-                nota = midiNote(pitchName, oct)
-                note.append(nota)
+            var s = fields[2]
+            if let first = s.first, first == "#" || first == "p" || first == "-" {
+                return
             }
 
-            if fields.count <= 3 || note.isEmpty {
+            if s.first != "n" {
+                var i = 2
+                while i + 1 < fields.count {
+                    let name = fields[i]
+                    guard let oct = Int(fields[i + 1]) else { return }
+                    let pitch = midiNote(name, oct)
+                    events.append(Event(tick: absStart, track: traccia, kind: 1, pitch: pitch, vel: Int(velocity), canale: canale, text: "", data: []))
+                    events.append(Event(tick: absEnd, track: traccia, kind: 0, pitch: pitch, vel: Int(velocity), canale: canale, text: "", data: []))
+                    prevDur = durF
+                    i += 2
+                }
+            }
+
+            s = fields[2]
+            if s.first != "n" { return }
+
+            if fields.count > 3 {
+                for extra in fields.dropFirst(3) {
+                    s += extra
+                }
+            }
+
+            var note: [Int] = []
+            if Array(s)[safe: 1] == "<" {
+                let chars = Array(s)
+                var sn = "\(chars[safe: 2] ?? "0")\(chars[safe: 3] ?? "0")"
+                var s0 = String(chars.dropFirst(4))
+                if chars[safe: 2] == "1" {
+                    sn += String(chars[safe: 4] ?? "0")
+                    s0 = String(chars.dropFirst(5))
+                }
+                s = s0
+                let v = Int(sn) ?? 0
+                let ottava = (v / 12) - 1
+                let nota = v % 12
+                s = "n\(ottava)\(String(nota, radix: 16).uppercased())\(s)"
+            }
+
+            let chars = Array(s)
+            guard chars.count >= 3 else { return }
+            let o = hex(chars[1])
+            var i = hex(chars[2])
+            if i > 15 { i = 15 }
+
+            var nota = (o + 1) * 12 + i
+            note.append(nota)
+
+            if s.count <= 3 {
                 events.append(Event(tick: absStart, track: traccia, kind: 1, pitch: nota, vel: Int(velocity), canale: canale, text: "", data: []))
                 events.append(Event(tick: absEnd, track: traccia, kind: 0, pitch: nota, vel: Int(velocity), canale: canale, text: "", data: []))
+                prevDur = durF
             } else {
-                let delay = delayArpeggio
-                let orderedNotes = (delay < 0) ? note.reversed() : note
-                let q = abs(delay) * Double(ticksPerBar)
+                if revert == 0 {
+                    for n in 3..<chars.count {
+                        let delta = hex(chars[n])
+                        let index = n - 3
+                        nota = note[index] + delta
+                        note.append(nota)
+                    }
+                } else {
+                    for n in 3..<chars.count {
+                        let delta = hex(chars[n])
+                        let index = n - 3
+                        nota = note[index] - delta
+                        note.append(nota)
+                    }
+                }
+
+                var delay = delayArpeggio
+                let orderedNotes: [Int]
+                if delay < 0 {
+                    delay *= -1
+                    orderedNotes = note.reversed()
+                } else {
+                    orderedNotes = note
+                }
+
+                let q = delay * Double(ticksPerQuarter * 4)
 
                 for (index, currentNote) in orderedNotes.enumerated() {
                     if currentNote == 0 { continue }
@@ -401,23 +648,9 @@ public enum BuildMidiGenerator {
                     events.append(Event(tick: noteStart, track: traccia, kind: 1, pitch: currentNote, vel: Int(velocity), canale: canale, text: "", data: []))
                     events.append(Event(tick: noteEnd, track: traccia, kind: 0, pitch: currentNote, vel: Int(velocity), canale: canale, text: "", data: []))
                 }
+
+                prevDur = durF + Double(max(orderedNotes.count - 1, 0)) * delay
             }
-        }
-
-        private func parseNoteToken(_ token: String) -> (name: String, oct: Int) {
-            var name = ""
-            var octStr = ""
-
-            for ch in token {
-                if ch.isNumber || (ch == "-" && name.isEmpty) {
-                    octStr.append(ch)
-                } else {
-                    name.append(ch)
-                }
-            }
-
-            let oct = Int(octStr) ?? 4
-            return (name.isEmpty ? "c" : name, oct)
         }
 
         private func writeOutputs(midURL: URL) throws {
