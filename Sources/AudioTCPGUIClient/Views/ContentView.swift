@@ -334,6 +334,14 @@ struct ContentView: View {
                     }
                     .buttonStyle(.bordered)
                     .help("Passo Successivo")
+
+                    Button(action: {
+                        service.exportScoreToMidiAndPDF()
+                    }) {
+                        Label("Esporta MIDI/PDF", systemImage: "arrow.down.doc.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Compila il file MIDI (.mid), genera il sorgente LilyPond (.ly) e compila lo spartito PDF (.pdf)")
                 }
             } else {
                 Button(action: {

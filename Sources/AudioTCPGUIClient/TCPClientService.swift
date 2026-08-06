@@ -579,6 +579,91 @@ final class TCPClientService: ObservableObject {
         }
     }
 
+    /// Esporta lo spartito BUILDMIDI in file MIDI (.mid), LilyPond (.ly) e PDF (.pdf) e lo apre su macOS
+    func exportScoreToMidiAndPDF() {
+        guard !scoreText.isEmpty else {
+            addLog("Piano Trainer: Nessun testo spartito da esportare", isError: true)
+            return
+        }
+
+        let text = scoreText
+        let fileManager = FileManager.default
+        let downloadsFolder = fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? fileManager.temporaryDirectory
+        let baseName = scoreFileName
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: ".py", with: "")
+            .replacingOccurrences(of: ".txt", with: "")
+
+        let midURL = downloadsFolder.appendingPathComponent("\(baseName).mid")
+        let lyURL = downloadsFolder.appendingPathComponent("\(baseName)-midi.ly")
+        let pdfURL = downloadsFolder.appendingPathComponent("\(baseName)-midi.pdf")
+
+        addLog("Piano Trainer: Esportazione MIDI/PDF in corso...", isError: false)
+
+        let midi2lyPath = findExecutable(["/opt/homebrew/bin/midi2ly", "/usr/local/bin/midi2ly", "/usr/bin/midi2ly"])
+        let lilypondPath = findExecutable(["/opt/homebrew/bin/lilypond", "/usr/local/bin/lilypond", "/usr/bin/lilypond"])
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            do {
+                // 1. Compila ed esegui la scrittura del file .mid
+                try BuildMidiGenerator.generateMIDI(from: text, midURL: midURL)
+
+                DispatchQueue.main.async {
+                    self.addLog("Piano Trainer: Creato file MIDI -> \(midURL.lastPathComponent)", isError: false)
+                }
+
+                if let midi2lyPath = midi2lyPath {
+                    let midi2lyProc = Process()
+                    midi2lyProc.executableURL = URL(fileURLWithPath: midi2lyPath)
+                    midi2lyProc.arguments = ["-o", lyURL.path, midURL.path]
+                    try midi2lyProc.run()
+                    midi2lyProc.waitUntilExit()
+
+                    DispatchQueue.main.async {
+                        self.addLog("Piano Trainer: Generato sorgente LilyPond -> \(lyURL.lastPathComponent)", isError: false)
+                    }
+                }
+
+                if let lilypondPath = lilypondPath, FileManager.default.fileExists(atPath: lyURL.path) {
+                    let lilyProc = Process()
+                    lilyProc.executableURL = URL(fileURLWithPath: lilypondPath)
+                    lilyProc.currentDirectoryURL = downloadsFolder
+                    lilyProc.arguments = ["-o", downloadsFolder.appendingPathComponent("\(baseName)-midi").path, lyURL.path]
+                    try lilyProc.run()
+                    lilyProc.waitUntilExit()
+
+                    DispatchQueue.main.async {
+                        self.addLog("Piano Trainer: Compilato spartito PDF -> \(pdfURL.lastPathComponent)", isError: false)
+                    }
+                }
+
+                DispatchQueue.main.async {
+                    if FileManager.default.fileExists(atPath: pdfURL.path) {
+                        NSWorkspace.shared.open(pdfURL)
+                        self.addLog("Piano Trainer: 🎉 Aperto spartito PDF!", isError: false)
+                    } else if FileManager.default.fileExists(atPath: midURL.path) {
+                        NSWorkspace.shared.open(midURL)
+                        self.addLog("Piano Trainer: 🎉 Aperto file MIDI!", isError: false)
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.addLog("Piano Trainer: Errore durante esportazione MIDI/PDF -> \(error.localizedDescription)", isError: true)
+                }
+            }
+        }
+    }
+
+    private func findExecutable(_ candidatePaths: [String]) -> String? {
+        for path in candidatePaths {
+            if FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+        }
+        return nil
+    }
+
     struct SF2Instrument: Identifiable, Hashable {
         let id: UInt8
         let name: String
