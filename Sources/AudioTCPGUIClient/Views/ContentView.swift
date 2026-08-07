@@ -180,14 +180,29 @@ struct ContentView: View {
     }
 
     private var trainerBadgesView: some View {
-        HStack(spacing: 12) {
-            targetDisplayBadgeView
-            GrandStaffView(clientService: clientService)
-            Spacer()
-            lastPlayedBadgeSubView
-            velocityBadgeSubView
-            durationBadgeSubView
-            Spacer()
+        VStack(spacing: 10) {
+            // 1. Pentagramma Pianoforte (GrandStaffView) al CENTRO
+            HStack {
+                Spacer()
+                GrandStaffView(clientService: clientService)
+                Spacer()
+            }
+
+            // 2. Proposta Mac (Accordo / Nota / Spartito) e Ultima Nota / Velocity / Durata SOTTO il Pentagramma
+            HStack(alignment: .center, spacing: 14) {
+                Spacer()
+
+                targetDisplayBadgeView
+
+                Divider()
+                    .frame(height: 38)
+
+                lastPlayedBadgeSubView
+                velocityBadgeSubView
+                durationBadgeSubView
+
+                Spacer()
+            }
         }
     }
 
