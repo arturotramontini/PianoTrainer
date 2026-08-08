@@ -509,10 +509,13 @@ final class TCPClientService: ObservableObject {
         addLog("Piano Trainer: Accordo Manuale Impostato -> \(targetChordText) [\(result.scaleMode.rawValue)]", isError: false)
     }
 
+    @Published var scoreFileURL: URL? = nil
+
     /// Carica ed analizza il testo di uno spartito in formato BUILDMIDI
-    func loadScoreFromText(_ text: String, fileName: String = "Spartito Testo") {
+    func loadScoreFromText(_ text: String, fileName: String = "Spartito Testo", fileURL: URL? = nil) {
         self.scoreText = text
         self.scoreFileName = fileName
+        self.scoreFileURL = fileURL
         let result = BuildMidiParser.parse(text: text, title: fileName)
         self.scoreParseResult = result
         self.currentScoreIndex = 0
@@ -607,17 +610,26 @@ final class TCPClientService: ObservableObject {
 
         let text = scoreText
         let fileManager = FileManager.default
-        let downloadsFolder = fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? fileManager.temporaryDirectory
+        
+        // Cartella di destinazione: usa la stessa cartella dello spartito aperto se presente, altrimenti Downloads
+        let targetFolder: URL
+        if let scoreFileURL = scoreFileURL {
+            targetFolder = scoreFileURL.deletingLastPathComponent()
+        } else {
+            targetFolder = fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? fileManager.temporaryDirectory
+        }
+
         let baseName = scoreFileName
             .replacingOccurrences(of: " ", with: "_")
             .replacingOccurrences(of: ".py", with: "")
+            .replacingOccurrences(of: ".PY", with: "")
             .replacingOccurrences(of: ".txt", with: "")
 
-        let midURL = downloadsFolder.appendingPathComponent("\(baseName).mid")
-        let lyURL = downloadsFolder.appendingPathComponent("\(baseName)-midi.ly")
-        let pdfURL = downloadsFolder.appendingPathComponent("\(baseName)-midi.pdf")
+        let midURL = targetFolder.appendingPathComponent("\(baseName).mid")
+        let lyURL = targetFolder.appendingPathComponent("\(baseName)-midi.ly")
+        let pdfURL = targetFolder.appendingPathComponent("\(baseName)-midi.pdf")
 
-        addLog("Piano Trainer: Esportazione MIDI/PDF in corso...", isError: false)
+        addLog("Piano Trainer: Esportazione MIDI/PDF in corso in \(targetFolder.path)...", isError: false)
 
         let midi2lyPath = findExecutable(["/opt/homebrew/bin/midi2ly", "/usr/local/bin/midi2ly", "/usr/bin/midi2ly"])
         let lilypondPath = findExecutable(["/opt/homebrew/bin/lilypond", "/usr/local/bin/lilypond", "/usr/bin/lilypond"])
@@ -647,8 +659,8 @@ final class TCPClientService: ObservableObject {
                 if let lilypondPath = lilypondPath, FileManager.default.fileExists(atPath: lyURL.path) {
                     let lilyProc = Process()
                     lilyProc.executableURL = URL(fileURLWithPath: lilypondPath)
-                    lilyProc.currentDirectoryURL = downloadsFolder
-                    lilyProc.arguments = ["-o", downloadsFolder.appendingPathComponent("\(baseName)-midi").path, lyURL.path]
+                    lilyProc.currentDirectoryURL = targetFolder
+                    lilyProc.arguments = ["-o", targetFolder.appendingPathComponent("\(baseName)-midi").path, lyURL.path]
                     try lilyProc.run()
                     lilyProc.waitUntilExit()
 
@@ -660,10 +672,10 @@ final class TCPClientService: ObservableObject {
                 DispatchQueue.main.async {
                     if FileManager.default.fileExists(atPath: pdfURL.path) {
                         NSWorkspace.shared.open(pdfURL)
-                        self.addLog("Piano Trainer: 🎉 Aperto spartito PDF!", isError: false)
+                        self.addLog("Piano Trainer: 🎉 Aperto spartito PDF salvato in \(targetFolder.path)", isError: false)
                     } else if FileManager.default.fileExists(atPath: midURL.path) {
                         NSWorkspace.shared.open(midURL)
-                        self.addLog("Piano Trainer: 🎉 Aperto file MIDI!", isError: false)
+                        self.addLog("Piano Trainer: 🎉 Aperto file MIDI salvato in \(targetFolder.path)", isError: false)
                     }
                 }
             } catch {

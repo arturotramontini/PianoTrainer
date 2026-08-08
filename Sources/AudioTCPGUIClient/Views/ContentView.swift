@@ -81,7 +81,7 @@ struct ContentView: View {
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 let content = try String(contentsOf: url, encoding: .utf8)
-                service.loadScoreFromText(content, fileName: url.lastPathComponent)
+                service.loadScoreFromText(content, fileName: url.lastPathComponent, fileURL: url)
             } catch {
                 service.addLog("Errore lettura file: \(error.localizedDescription)", isError: true)
             }
