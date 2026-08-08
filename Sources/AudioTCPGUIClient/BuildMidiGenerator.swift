@@ -211,10 +211,16 @@ public enum BuildMidiGenerator {
         }
 
         private func writeTrack(_ output: FileHandle, events: [Event]) throws {
+            let sorted = events.sorted {
+                if $0.tick != $1.tick { return $0.tick < $1.tick }
+                if $0.kind != $1.kind { return $0.kind < $1.kind }
+                return $0.pitch < $1.pitch
+            }
+
             var track = Data()
             var currentTick = 0
 
-            for event in events {
+            for event in sorted {
                 let delta = max(0, event.tick - currentTick)
                 currentTick = event.tick
 

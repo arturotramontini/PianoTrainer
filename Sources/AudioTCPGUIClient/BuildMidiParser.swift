@@ -148,20 +148,49 @@ public struct BuildMidiParser {
                     }
 
                     if noteStr.hasPrefix("n") {
-                        // Notazione NOI (es. n40 -> 60)
-                        let sub = String(noteStr.dropFirst())
-                        if let midiVal = UInt8(sub) {
-                            if midiVal >= 21 && midiVal <= 108 {
-                                targetMIDI.insert(midiVal)
-                                noteNames.append(NoteNameUtility.italianName(for: midiVal))
+                        var s = noteStr
+                        var j = i + 1
+                        while j < tokens.count {
+                            let nextT = tokens[j].lowercased()
+                            if nextT.first == "#" || nextT.first == "/" || nextT == "=" || nextT == "-" { break }
+                            if nextT.allSatisfy({ $0.isHexDigit || $0 == "<" || $0 == ">" }) {
+                                s += nextT
+                                j += 1
+                            } else {
+                                break
                             }
-                        } else if sub.count >= 2, let octDigit = Int(String(sub.prefix(1))), let pcDigit = Int(String(sub.suffix(1))) {
-                            let midiVal = UInt8((octDigit + 1) * 12 + pcDigit)
-                            if midiVal >= 21 && midiVal <= 108 {
+                        }
+                        i = j - 1
+
+                        var notePitches: [Int] = []
+                        let chars = Array(s)
+                        if chars.count >= 3 {
+                            let o = Int(String(chars[1]), radix: 16) ?? 4
+                            var pIdx = Int(String(chars[2]), radix: 16) ?? 0
+                            if pIdx > 15 { pIdx = 15 }
+                            var pitch = (o + 1) * 12 + pIdx
+                            notePitches.append(pitch)
+
+                            if chars.count > 3 {
+                                for n in 3..<chars.count {
+                                    if let delta = Int(String(chars[n]), radix: 16) {
+                                        pitch += delta
+                                        notePitches.append(pitch)
+                                    }
+                                }
+                            }
+                        } else if let midiVal = Int(String(noteStr.dropFirst())) {
+                            notePitches.append(midiVal)
+                        }
+
+                        for pitchVal in notePitches {
+                            if pitchVal >= 21 && pitchVal <= 108 {
+                                let midiVal = UInt8(pitchVal)
                                 targetMIDI.insert(midiVal)
                                 noteNames.append(NoteNameUtility.italianName(for: midiVal))
                             }
                         }
+
                         i += 1
                         continue
                     }
