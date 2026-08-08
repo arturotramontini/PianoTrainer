@@ -634,6 +634,9 @@ final class TCPClientService: ObservableObject {
         let midi2lyPath = findExecutable(["/opt/homebrew/bin/midi2ly", "/usr/local/bin/midi2ly", "/usr/bin/midi2ly"])
         let lilypondPath = findExecutable(["/opt/homebrew/bin/lilypond", "/usr/local/bin/lilypond", "/usr/bin/lilypond"])
 
+        var env = ProcessInfo.processInfo.environment
+        env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:" + (env["PATH"] ?? "")
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             do {
@@ -644,38 +647,77 @@ final class TCPClientService: ObservableObject {
                     self.addLog("Piano Trainer: Creato file MIDI -> \(midURL.lastPathComponent)", isError: false)
                 }
 
+                // 2. Esegui midi2ly per generare il file .ly
                 if let midi2lyPath = midi2lyPath {
                     let midi2lyProc = Process()
+                    midi2lyProc.environment = env
                     midi2lyProc.executableURL = URL(fileURLWithPath: midi2lyPath)
                     midi2lyProc.arguments = ["-o", lyURL.path, midURL.path]
+
+                    let pipe = Pipe()
+                    midi2lyProc.standardOutput = pipe
+                    midi2lyProc.standardError = pipe
+
                     try midi2lyProc.run()
                     midi2lyProc.waitUntilExit()
 
+                    let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let outputStr = String(data: outputData, encoding: .utf8) ?? ""
+
                     DispatchQueue.main.async {
-                        self.addLog("Piano Trainer: Generato sorgente LilyPond -> \(lyURL.lastPathComponent)", isError: false)
+                        if FileManager.default.fileExists(atPath: lyURL.path) {
+                            self.addLog("Piano Trainer: Generato sorgente LilyPond -> \(lyURL.lastPathComponent)", isError: false)
+                        } else {
+                            self.addLog("Piano Trainer: Error midi2ly: \(outputStr)", isError: true)
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.addLog("Piano Trainer: Comando 'midi2ly' non trovato in /opt/homebrew/bin", isError: true)
                     }
                 }
 
+                // 3. Esegui lilypond per compilare il file .pdf
                 if let lilypondPath = lilypondPath, FileManager.default.fileExists(atPath: lyURL.path) {
                     let lilyProc = Process()
+                    lilyProc.environment = env
                     lilyProc.executableURL = URL(fileURLWithPath: lilypondPath)
                     lilyProc.currentDirectoryURL = targetFolder
-                    lilyProc.arguments = ["-o", targetFolder.appendingPathComponent("\(baseName)-midi").path, lyURL.path]
+                    let pdfPrefix = targetFolder.appendingPathComponent("\(baseName)-midi").path
+                    lilyProc.arguments = ["-o", pdfPrefix, lyURL.path]
+
+                    let pipe = Pipe()
+                    lilyProc.standardOutput = pipe
+                    lilyProc.standardError = pipe
+
                     try lilyProc.run()
                     lilyProc.waitUntilExit()
 
+                    let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let outputStr = String(data: outputData, encoding: .utf8) ?? ""
+
                     DispatchQueue.main.async {
-                        self.addLog("Piano Trainer: Compilato spartito PDF -> \(pdfURL.lastPathComponent)", isError: false)
+                        if FileManager.default.fileExists(atPath: pdfURL.path) {
+                            self.addLog("Piano Trainer: Compilato spartito PDF -> \(pdfURL.lastPathComponent)", isError: false)
+                        } else {
+                            self.addLog("Piano Trainer: Error LilyPond: \(outputStr)", isError: true)
+                        }
+                    }
+                } else if lilypondPath == nil {
+                    DispatchQueue.main.async {
+                        self.addLog("Piano Trainer: Eseguibile 'lilypond' non trovato in /opt/homebrew/bin", isError: true)
                     }
                 }
 
                 DispatchQueue.main.async {
                     if FileManager.default.fileExists(atPath: pdfURL.path) {
                         NSWorkspace.shared.open(pdfURL)
-                        self.addLog("Piano Trainer: 🎉 Aperto spartito PDF salvato in \(targetFolder.path)", isError: false)
+                        self.addLog("Piano Trainer: 🎉 Aperto spartito PDF -> \(pdfURL.lastPathComponent)", isError: false)
                     } else if FileManager.default.fileExists(atPath: midURL.path) {
                         NSWorkspace.shared.open(midURL)
                         self.addLog("Piano Trainer: 🎉 Aperto file MIDI salvato in \(targetFolder.path)", isError: false)
+                    } else {
+                        self.addLog("Piano Trainer: Impossibile trovare il file PDF generato.", isError: true)
                     }
                 }
             } catch {
